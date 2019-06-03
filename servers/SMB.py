@@ -135,32 +135,6 @@ def ParseSMBHash(data,client, Challenge):  #Parse SMB NTLMSSP v1/v2
 			'fullhash': WriteHash,
 		})
 
-
-def ParseSMB2NTLMv2Hash(data,client, Challenge):  #Parse SMB NTLMv2
-    SSPIStart = data[113:]
-    data = data[113:]
-    LMhashLen = struct.unpack('<H',data[12:14])[0]
-    LMhashOffset = struct.unpack('<H',data[16:18])[0]
-    LMHash = SSPIStart[LMhashOffset:LMhashOffset+LMhashLen].encode("hex").upper()
-    NthashLen = struct.unpack('<H',data[22:24])[0]
-    NthashOffset = struct.unpack('<H',data[24:26])[0]
-    SMBHash = SSPIStart[NthashOffset:NthashOffset+NthashLen].encode("hex").upper()
-    DomainLen = struct.unpack('<H',data[30:32])[0]
-    DomainOffset = struct.unpack('<H',data[32:34])[0]
-    Domain = SSPIStart[DomainOffset:DomainOffset+DomainLen].decode('UTF-16LE')
-    UserLen      = struct.unpack('<H',data[38:40])[0]
-    UserOffset   = struct.unpack('<H',data[40:42])[0]
-    Username     = SSPIStart[UserOffset:UserOffset+UserLen].decode('UTF-16LE')
-    WriteHash    = '%s::%s:%s:%s:%s' % (Username, Domain, Challenge.encode('hex'), SMBHash[:32], SMBHash[32:])
-    SaveToDb({
-                'module': 'SMBv2', 
-		'type': 'NTLMv2-SSP', 
-		'client': client, 
-		'user': Domain+'\\'+Username, 
-		'hash': SMBHash, 
-		'fullhash': WriteHash,
-             })
-
 def ParseLMNTHash(data, client, Challenge):  # Parse SMB NTLMv1/v2
 	LMhashLen = struct.unpack('<H',data[51:53])[0]
 	NthashLen = struct.unpack('<H',data[53:55])[0]
@@ -263,7 +237,7 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
               				data = self.request.recv(1024)
                                 ## Session Setup 3 answer SMBv2.
 				if data[16:18] == "\x01\x00" and GrabMessageID(data)[0:1] == "\x02" and data[4:5] == "\xfe":
-              				ParseSMB2NTLMv2Hash(data, self.client_address[0], Challenge)
+              				ParseSMBHash(data, self.client_address[0], Challenge)
               				head = SMB2Header(Cmd="\x01\x00", MessageId=GrabMessageID(data), PID="\xff\xfe\x00\x00", CreditCharge=GrabCreditCharged(data), Credits=GrabCreditRequested(data), NTStatus="\x22\x00\x00\xc0", SessionID=GrabSessionID(data))
               				t = SMB2Session2Data()
               				packet1 = str(head)+str(t)

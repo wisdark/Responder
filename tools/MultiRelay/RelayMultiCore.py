@@ -130,7 +130,10 @@ def ParseHTTPHash(data, key, client, UserToRelay, Host, Pivoting):
                    else:
                       print "[+] Received NTLMv1 hash from: %s %s"%(client, ShowSmallResults((client,445)))
 
-                if User in UserToRelay or "ALL" in UserToRelay:
+                if ('!' + User) in UserToRelay:
+                    print "[+] Username: %s is blacklisted, dropping connection." % User
+                    return None, None
+                elif User in UserToRelay or "ALL" in UserToRelay:
                         if Pivoting[0] == "1":
                            return User, Domain
                         print "[+] Username: %s is whitelisted, forwarding credentials."%(User)

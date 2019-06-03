@@ -22,22 +22,23 @@ from odict import OrderedDict
 import optparse
 from RunFingerPackets import *
 
-__version__ = "0.7"
+__version__ = "0.8"
 
 parser = optparse.OptionParser(usage='python %prog -i 10.10.10.224\nor:\npython %prog -i 10.10.10.0/24', version=__version__, prog=sys.argv[0])
 
 parser.add_option('-i','--ip', action="store", help="Target IP address or class C", dest="TARGET", metavar="10.10.10.224", default=None)
-parser.add_option('-g','--grep', action="store_true", dest="Grep", default=False, help="Output in grepable format")
+parser.add_option('-a','--all', action="store_true", help="Performs all checks (including MS17-010)", dest="all", default=False)
+parser.add_option('-g','--grep', action="store_true", dest="grep_output", default=False, help="Output in grepable format")
 options, args = parser.parse_args()
 
 if options.TARGET is None:
-    print "\n-i Mandatory option is missing, please provide a target or target range.\n"
+    print("\n-i Mandatory option is missing, please provide a target or target range.\n")
     parser.print_help()
     exit(-1)
 
 Timeout = 2
 Host = options.TARGET
-Grep = options.Grep
+MS17010Check = options.all
 
 class Packet():
     fields = OrderedDict([
@@ -78,27 +79,27 @@ def dtoa(d):
     return inet_ntoa(struct.pack("!L", d))
 
 def OsNameClientVersion(data):
-	try:
-		length = struct.unpack('<H',data[43:45])[0]
-                if length > 255:
-		   OsVersion, ClientVersion = tuple([e.replace('\x00','') for e in data[48+length:].split('\x00\x00\x00')[:2]])
-		   return OsVersion, ClientVersion
-                if length <= 255:
-		   OsVersion, ClientVersion = tuple([e.replace('\x00','') for e in data[47+length:].split('\x00\x00\x00')[:2]])
-		   return OsVersion, ClientVersion
-	except:
-	 	return "Could not fingerprint Os version.", "Could not fingerprint LanManager Client version"
+    try:
+        length = struct.unpack('<H',data[43:45])[0]
+        if length > 255:
+            OsVersion, ClientVersion = tuple([e.replace('\x00','') for e in data[48+length:].split('\x00\x00\x00')[:2]])
+            return OsVersion, ClientVersion
+        if length <= 255:
+            OsVersion, ClientVersion = tuple([e.replace('\x00','') for e in data[47+length:].split('\x00\x00\x00')[:2]])
+            return OsVersion, ClientVersion
+    except:
+         return "Could not fingerprint Os version.", "Could not fingerprint LanManager Client version"
 def GetHostnameAndDomainName(data):
-	try:
-		DomainJoined, Hostname = tuple([e.replace('\x00','') for e in data[81:].split('\x00\x00\x00')[:2]])
-                Time = GetBootTime(data[60:68])
-                #If max length domain name, there won't be a \x00\x00\x00 delineator to split on
-		if Hostname == '':
-			DomainJoined = data[81:110].replace('\x00','')
-			Hostname = data[113:].replace('\x00','')
-		return Hostname, DomainJoined, Time
-	except:
-	 	return "Could not get Hostname.", "Could not get Domain joined"
+    try:
+        DomainJoined, Hostname = tuple([e.replace('\x00','') for e in data[81:].split('\x00\x00\x00')[:2]])
+        Time = GetBootTime(data[60:68])
+        #If max length domain name, there won't be a \x00\x00\x00 delineator to split on
+        if Hostname == '':
+            DomainJoined = data[81:110].replace('\x00','')
+            Hostname = data[113:].replace('\x00','')
+        return Hostname, DomainJoined, Time
+    except:
+         return "Could not get Hostname.", "Could not get Domain joined"
 
 def DomainGrab(Host):
     s = socket(AF_INET, SOCK_STREAM)
@@ -150,73 +151,54 @@ def SmbFinger(Host):
        pass
 
 
-def SmbNullSession(Host):
+def check_ms17_010(host):
     s = socket(AF_INET, SOCK_STREAM)
     try:
-       s.settimeout(Timeout)
-       s.connect(Host)
-    except:
-       pass 
+        s.settimeout(Timeout)
+        s.connect(Host)
+        h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x53\xc8")
+        n = SMBNego(Data = SMBNegoData())
+        n.calculate()
+        packet0 = str(h)+str(n)
+        buffer0 = longueur(packet0)+packet0
+        s.send(buffer0)
+        data = s.recv(2048)
+        if data[8:10] == "\x75\x00":
+            head = SMBHeader(cmd="\x25",flag1="\x18", flag2="\x07\xc8",uid=data[32:34],tid=data[28:30],mid="\xc0\x00")
+            t = SMBTransRAPData()
+            t.calculate()
+            packet1 = str(head)+str(t)
+            buffer1 = longueur(packet1)+packet1  
+            s.send(buffer1)
+            data = s.recv(2048)
+            if data[9:13] == "\x05\x02\x00\xc0":
+                return True
+            else:
+                return False
+        else:
+            return False
+    except Exception as err:
+        return False
 
-    try:     
-       h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x53\xc8")
-       n = SMBNego(Data = SMBNegoData())
-       n.calculate()
-       packet0 = str(h)+str(n)
-       buffer0 = longueur(packet0)+packet0
-       s.send(buffer0)
-       data = s.recv(2048)
-       try:
-           if data[8:10] == "\x72\x00":
-              head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x53\xc8")
-              t = SMBSessionData()
-              t.calculate()
-              final = t 
-              packet1 = str(head)+str(final)
-              buffer1 = longueur(packet1)+packet1
-              s.send(buffer1)
-              data = s.recv(2048)
 
-           if data[8:10] == "\x73\x16":
-              head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x17\xc8",uid=data[32:34],mid="\x80\x00")
-              t = SMBSession2()
-              t.calculate()
-              final = t 
-              packet1 = str(head)+str(final)
-              buffer1 = longueur(packet1)+packet1
-              s.send(buffer1)
-              data = s.recv(2048)
-
-           if data[8:10] == "\x73\x00":
-              head = SMBHeader(cmd="\x75",flag1="\x18", flag2="\x07\xc8",uid=data[32:34],mid="\xc0\x00")
-              t = SMBTreeConnectData(Path="\\\\"+Host[0]+"\\IPC$")
-              t.calculate()
-              packet1 = str(head)+str(t)
-              buffer1 = longueur(packet1)+packet1  
-              s.send(buffer1)
-              data = s.recv(2048)
-
-           if data[8:10] == "\x75\x00":
-              global Guest
-              Guest = True
-              head = SMBHeader(cmd="\x25",flag1="\x18", flag2="\x07\xc8",uid=data[32:34],tid=data[28:30],mid="\xc0\x00")
-              t = SMBTransRAPData()
-              t.calculate()
-              packet1 = str(head)+str(t)
-              buffer1 = longueur(packet1)+packet1  
-              s.send(buffer1)
-              data = s.recv(2048)
-              if data[9:13] == "\x05\x02\x00\xc0":
-                 return Guest, True
-              else:
-                 return Guest, False
-           else:
-              return False, False
-       except Exception:
-           pass
-
-    except:
-       pass
+def check_smb_null_session(host):
+    s = socket(AF_INET, SOCK_STREAM)
+    try:
+        s.settimeout(Timeout)
+        s.connect(host)
+        h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x53\xc8")
+        n = SMBNego(Data = SMBNegoData())
+        n.calculate()
+        packet0 = str(h)+str(n)
+        buffer0 = longueur(packet0)+packet0
+        s.send(buffer0)
+        data = s.recv(2048)
+        if data[8:10] == "\x75\x00":
+            return True
+        else:
+            return False
+    except Exception:
+        return False
 
 ##################
 #run it
@@ -224,14 +206,23 @@ def ShowResults(Host):
     try:
        Hostname, DomainJoined, Time = DomainGrab(Host)
        Signing, OsVer, LanManClient = SmbFinger(Host)
-       NullSess, Ms17010 = SmbNullSession(Host)
-       print "Retrieving information for %s..."%Host[0]
-       print "SMB signing:", Signing
-       print "Null Sessions Allowed:", NullSess
-       print "Vulnerable to MS10-010:", Ms17010
-       print "Server Time:", Time[1]
-       print "Os version: '%s'\nLanman Client: '%s'"%(OsVer, LanManClient)
-       print "Machine Hostname: '%s'\nThis machine is part of the '%s' domain\n"%(Hostname, DomainJoined)
+       NullSess = check_smb_null_session(Host)
+       if MS17010Check:
+          Ms17010 = check_ms17_010(Host)
+          print "Retrieving information for %s..."%Host[0]
+          print "SMB signing:", Signing
+          print "Null Sessions Allowed:", NullSess
+          print "Vulnerable to MS17-010:", Ms17010
+          print "Server Time:", Time[1]
+          print "OS version: '%s'\nLanman Client: '%s'"%(OsVer, LanManClient)
+          print "Machine Hostname: '%s'\nThis machine is part of the '%s' domain\n"%(Hostname, DomainJoined)
+       else:
+          print "Retrieving information for %s..."%Host[0]
+          print "SMB signing:", Signing
+          print "Null Sessions Allowed:", NullSess
+          print "Server Time:", Time[1]
+          print "OS version: '%s'\nLanman Client: '%s'"%(OsVer, LanManClient)
+          print "Machine Hostname: '%s'\nThis machine is part of the '%s' domain\n"%(Hostname, DomainJoined)
     except:
        pass
 
@@ -244,42 +235,40 @@ def ShowSmallResults(Host):
        return False
 
     try:
-       Hostname, DomainJoined, Time = DomainGrab(Host)
-       Signing, OsVer, LanManClient = SmbFinger(Host)
-       NullSess, Ms17010 = SmbNullSession(Host)
-       Message = "['%s', Os:'%s', Domain:'%s', Signing:'%s', Time:'%s', Null Session: %s, MS17-010: %s]"%(Host[0], OsVer, DomainJoined, Signing, Time[1],NullSess, Ms17010)
-       print Message
-    except:
-       raise
-       pass
-
-def IsGrepable():
-    if options.Grep:
-       return True
-    else:
-       return False
+       if MS17010Check:
+          Hostname, DomainJoined, Time = DomainGrab(Host)
+          Signing, OsVer, LanManClient = SmbFinger(Host)
+          NullSess = check_smb_null_session(Host)
+          Ms17010 = check_ms17_010(Host)
+          message_ms17010 = ", MS17-010: {}".format(Ms17010)
+          print("['{}', Os:'{}', Domain:'{}', Signing:'{}', Time:'{}', Null Session: {} {}".format(Host[0], OsVer, DomainJoined, Signing, Time[1],NullSess, message_ms17010))
+       else:
+          Hostname, DomainJoined, Time = DomainGrab(Host)
+          Signing, OsVer, LanManClient = SmbFinger(Host)
+          NullSess = check_smb_null_session(Host)
+          print("['{}', Os:'{}', Domain:'{}', Signing:'{}', Time:'{}', Null Session: {}".format(Host[0], OsVer, DomainJoined, Signing, Time[1],NullSess))
+    except Exception as err:
+        pass
 
 def RunFinger(Host):
     m = re.search("/", str(Host))
-    if m :
-       net,_,mask = Host.partition('/')
-       mask = int(mask)
-       net = atod(net)
-       threads = []
-       for host in (dtoa(net+n) for n in range(0, 1<<32-mask)):
-           if IsGrepable():
-              p = multiprocessing.Process(target=ShowSmallResults, args=((host,445),))
-              threads.append(p)
-              p.start()
-           else:
-              p = multiprocessing.Process(target=ShowResults, args=((host,445),))
-              threads.append(p)
-              p.start()
+    if m:
+        net,_,mask = Host.partition('/')
+        mask = int(mask)
+        net = atod(net)
+        threads = []
+        if options.grep_output:
+            func = ShowSmallResults
+        else:
+            func = ShowResults
+        for host in (dtoa(net+n) for n in range(0, 1<<32-mask)):
+            p = multiprocessing.Process(target=func, args=((host,445),))
+            threads.append(p)
+            p.start()
     else:
-      if IsGrepable():
-          ShowSmallResults((Host,445))
-      else:
-          ShowResults((Host,445))
+        if options.grep_output:
+            ShowSmallResults((Host,445))
+        else:
+            ShowResults((Host,445))
 
 RunFinger(Host)
-

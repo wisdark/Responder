@@ -162,20 +162,23 @@ def SaveToDb(result):
 			result[k] = ''
 
 	if len(result['user']) < 2:
+		print color('[*] Skipping one character username: %s' % result['user'], 3, 1)
+		text("[*] Skipping one character username: %s" % result['user'])
 		return
-
-	if len(result['cleartext']):
-		fname = '%s-%s-ClearText-%s.txt' % (result['module'], result['type'], result['client'])
-	else:
-		fname = '%s-%s-%s.txt' % (result['module'], result['type'], result['client'])
-	
-	logfile = os.path.join(settings.Config.ResponderPATH, 'logs', fname)
 
 	cursor = sqlite3.connect(settings.Config.DatabaseFile)
 	cursor.text_factory = sqlite3.Binary  # We add a text factory to support different charsets
-	res = cursor.execute("SELECT COUNT(*) AS count FROM responder WHERE module=? AND type=? AND client=? AND LOWER(user)=LOWER(?)", (result['module'], result['type'], result['client'], result['user']))
+	
+	if len(result['cleartext']):
+		fname = '%s-%s-ClearText-%s.txt' % (result['module'], result['type'], result['client'])
+		res = cursor.execute("SELECT COUNT(*) AS count FROM responder WHERE module=? AND type=? AND client=? AND LOWER(user)=LOWER(?) AND cleartext=?", (result['module'], result['type'], result['client'], result['user'], result['cleartext']))
+	else:
+		fname = '%s-%s-%s.txt' % (result['module'], result['type'], result['client'])
+		res = cursor.execute("SELECT COUNT(*) AS count FROM responder WHERE module=? AND type=? AND client=? AND LOWER(user)=LOWER(?)", (result['module'], result['type'], result['client'], result['user']))
+
 	(count,) = res.fetchone()
-        
+	logfile = os.path.join(settings.Config.ResponderPATH, 'logs', fname)
+
 	if not count:
 		with open(logfile,"a") as outf:
 			if len(result['cleartext']):  # If we obtained cleartext credentials, write them to file
@@ -218,6 +221,9 @@ def SaveToDb(result):
 		if settings.Config.AutoIgnore and not result['user'].endswith('$'):
 			settings.Config.AutoIgnoreList.append(result['client'])
 			print color('[*] Adding client %s to auto-ignore list' % result['client'], 4, 1)
+	elif len(result['cleartext']):
+		print color('[*] Skipping previously captured cleartext password for %s' % result['user'], 3, 1)
+		text('[*] Skipping previously captured cleartext password for %s' % result['user'])
 	else:
 		print color('[*] Skipping previously captured hash for %s' % result['user'], 3, 1)
 		text('[*] Skipping previously captured hash for %s' % result['user'])

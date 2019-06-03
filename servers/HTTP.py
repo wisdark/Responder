@@ -192,7 +192,6 @@ def PacketSequence(data, client, Challenge):
 
 	if NTLM_Auth:
 		Packet_NTLM = b64decode(''.join(NTLM_Auth))[8:9]
-                print "Challenge 2:", Challenge.encode('hex')
 		if Packet_NTLM == "\x01":
 			GrabURL(data, client)
 			GrabReferer(data, client)
@@ -279,21 +278,22 @@ class HTTP(BaseRequestHandler):
 						break
 					data += buff
 					remaining -= len(buff)
-					if remaining <= 0:
-						break
 					#check if we recieved the full header
 					if data.find('\r\n\r\n') != -1: 
 						#we did, now to check if there was anything else in the request besides the header
 						if data.find('Content-Length') == -1:
 							#request contains only header
 							break
-					else:
-						#searching for that content-length field in the header
-						for line in data.split('\r\n'):
-							if line.find('Content-Length') != -1:
-								line = line.strip()
-								remaining = int(line.split(':')[1].strip()) - len(data)
-			
+						else:
+							#searching for that content-length field in the header
+							for line in data.split('\r\n'):
+								if line.find('Content-Length') != -1:
+									line = line.strip()
+									remaining = int(line.split(':')[1].strip()) - len(data)
+					if remaining <= 0:
+						break
+				if data == "":
+					break
 				#now the data variable has the full request
 				Buffer = WpadCustom(data, self.client_address[0])
 

