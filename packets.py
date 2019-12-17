@@ -1633,3 +1633,148 @@ class SMB2NegoDataReq(Packet):
         ("StrType2","\x02"),
         ("dialect2", "SMB 2.???\x00"),
     ])
+###################RDP Packets################################
+class TPKT(Packet):
+    fields = OrderedDict([
+        ("Version", "\x03"),
+        ("Reserved", "\x00"),
+        ("Length", "\x00\x24" ),
+        ("Data", ""),
+    ])    
+    
+    def calculate(self):
+        self.fields["Length"] = struct.pack(">h",len(str(self.fields["Data"]))+4)#Data+own header.
+
+class X224(Packet):
+    fields = OrderedDict([
+        ("Length", "\x0e"),
+        ("Cmd",    "\xd0"),
+        ("Dstref", "\x00\x00"),
+        ("Srcref", "\x12\x34"),
+        ("Class", "\x00"),
+        ("Data", "")
+    ])
+    
+    def calculate(self): 
+        self.fields["Length"] = struct.pack(">B",len(str(self.fields["Data"]))+6)
+
+
+class RDPNEGOAnswer(Packet):
+    fields = OrderedDict([
+        ("Cmd",      	  "\x02"),
+        ("Flags",    	  "\x00"),
+        ("Length",        "\x08\x00"),
+        ("SelectedProto", "\x02\x00\x00\x00"),#CredSSP
+    ])
+    
+    def calculate(self): 
+        self.fields["Length"] = struct.pack("<h",8)
+
+
+class RDPNTLMChallengeAnswer(Packet):
+	fields = OrderedDict([
+
+		("PacketStartASN",                            "\x30"),
+		("PacketStartASNLenOfLen",                    "\x81"),
+		("PacketStartASNStr",                         "\x01"), #Len of what follows... in this case, +20 since it's x81 lengths are >B 
+		("PacketStartASNTag0",                        "\xa0"),
+		("PacketStartASNTag0Len",                     "\x03"), #Static for TSVersion
+		("PacketStartASNTag0Len2",                    "\x02"),
+		("PacketStartASNTag0Len3",                    "\x01"),
+		("PacketStartASNTag0CredSSPVersion",          "\x05"),##TSVersion: Since padding oracle, v2,v3,v4 are rejected by win7..
+		("ParserHeadASNID1",                          "\xa1"),
+		("ParserHeadASNLenOfLen1",                    "\x81"),
+		("ParserHeadASNLen1",                         "\xfa"),#... +12
+		("MessageIDASNID",                            "\x30"),
+		("MessageIDASNLen",                           "\x81"),
+		("MessageIDASNLen2",                          "\xf7"),#... +9
+		("OpHeadASNID",                               "\x30"),
+		("OpHeadASNIDLenOfLen",                       "\x81"),
+		("OpHeadASNIDLen",                            "\xf4"),#... +6
+		("StatusASNID",                               "\xa0"), 
+		("MatchedDN",                                 "\x81"), 
+		("ASNLen01",                                  "\xf1"),#NTLM len +3
+		("SequenceHeader",                            "\x04"),
+		("SequenceHeaderLenOfLen",                    "\x81"),
+		("SequenceHeaderLen",                         "\xee"), #done
+		#######
+		("NTLMSSPSignature",                          "NTLMSSP"),
+		("NTLMSSPSignatureNull",                      "\x00"),
+		("NTLMSSPMessageType",                        "\x02\x00\x00\x00"),
+		("NTLMSSPNtWorkstationLen",                   "\x1e\x00"),
+		("NTLMSSPNtWorkstationMaxLen",                "\x1e\x00"),
+		("NTLMSSPNtWorkstationBuffOffset",            "\x38\x00\x00\x00"),
+		("NTLMSSPNtNegotiateFlags",                   "\x15\x82\x8a\xe2"),
+		("NTLMSSPNtServerChallenge",                  "\x81\x22\x33\x34\x55\x46\xe7\x88"),
+		("NTLMSSPNtReserved",                         "\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("NTLMSSPNtTargetInfoLen",                    "\x94\x00"),
+		("NTLMSSPNtTargetInfoMaxLen",                 "\x94\x00"),
+		("NTLMSSPNtTargetInfoBuffOffset",             "\x56\x00\x00\x00"),
+		("NegTokenInitSeqMechMessageVersionHigh",     "\x05"),
+		("NegTokenInitSeqMechMessageVersionLow",      "\x02"),
+		("NegTokenInitSeqMechMessageVersionBuilt",    "\xce\x0e"),
+		("NegTokenInitSeqMechMessageVersionReserved", "\x00\x00\x00"),
+		("NegTokenInitSeqMechMessageVersionNTLMType", "\x0f"),
+		("NTLMSSPNtWorkstationName",                  "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairsId",             "\x02\x00"),
+		("NTLMSSPNTLMChallengeAVPairsLen",            "\x0a\x00"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs1Id",            "\x01\x00"),
+		("NTLMSSPNTLMChallengeAVPairs1Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs2Id",            "\x04\x00"),
+		("NTLMSSPNTLMChallengeAVPairs2Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs3Id",            "\x03\x00"),
+		("NTLMSSPNTLMChallengeAVPairs3Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    "RPD12"),
+		("NTLMSSPNTLMChallengeAVPairs5Id",            "\x05\x00"),
+		("NTLMSSPNTLMChallengeAVPairs5Len",           "\x04\x00"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs6Id",            "\x00\x00"),
+		("NTLMSSPNTLMChallengeAVPairs6Len",           "\x00\x00"),
+	])
+
+	def calculate(self):
+
+		###### Convert strings to Unicode first
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le')
+
+		###### Workstation Offset
+		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+		###### AvPairs Offset
+		CalculateLenAvpairs = str(self.fields["NTLMSSPNTLMChallengeAVPairsId"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsLen"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs2Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs3Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs5Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs6Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs6Len"])
+
+		###### RDP Packet Len
+		NTLMMessageLen = CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])+CalculateLenAvpairs
+
+		##### RDP Len Calculation:
+
+		self.fields["SequenceHeaderLen"] = struct.pack(">B", len(NTLMMessageLen))
+		self.fields["ASNLen01"] = struct.pack(">B", len(NTLMMessageLen)+3)
+		self.fields["OpHeadASNIDLen"] = struct.pack(">B", len(NTLMMessageLen)+6)
+		self.fields["MessageIDASNLen2"] = struct.pack(">B", len(NTLMMessageLen)+9)
+		self.fields["ParserHeadASNLen1"] = struct.pack(">B", len(NTLMMessageLen)+12)
+		self.fields["PacketStartASNStr"] = struct.pack(">B", len(NTLMMessageLen)+20)
+
+		##### Workstation Offset Calculation:
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		##### IvPairs Offset Calculation:
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		##### IvPair Calculation:
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+
+

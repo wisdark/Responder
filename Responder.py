@@ -244,6 +244,10 @@ def main():
 			from servers.HTTP import HTTP
 			threads.append(Thread(target=serve_thread_SSL, args=('', 443, HTTP,)))
 
+		if settings.Config.RDP_On_Off:
+			from servers.RDP import RDP
+			threads.append(Thread(target=serve_thread_tcp, args=('', 3389, RDP,)))
+
 		if settings.Config.WPAD_On_Off:
 			from servers.HTTP_Proxy import HTTP_Proxy
 			threads.append(Thread(target=serve_thread_tcp, args=('', 3141, HTTP_Proxy,)))

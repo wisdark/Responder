@@ -22,6 +22,10 @@ Supports NTLMv1, NTLMv2 hashes with Extended Security NTLMSSP by default. Succes
 
 In order to redirect SQL Authentication to this tool, you will need to set the option -r (NBT-NS queries for SQL Server lookup are using the Workstation Service name suffix) for systems older than windows Vista (LLMNR will be used for Vista and higher). This server supports NTLMv1, LMv2 hashes. This functionality was successfully tested on Windows SQL Server 2005 & 2008.
 
+- Built-in RDP Auth server.
+
+In order to redirect RDP Authentication to this tool, you will need to set the option -r (NBT-NS queries for RDP Server lookup are using the Workstation Service name suffix) for systems older than windows Vista (LLMNR will be used for Vista and higher). This server supports NTLMv1, NTLMv2 hashes. This rogue authentication server has been successfully tested on Windows RDP clients ranging from Windows 7  to Windows 10 1903.
+
 - Built-in HTTP Auth server.
 
 In order to redirect HTTP Authentication to this tool, you will need to set the option -r for Windows version older than Vista (NBT-NS queries for HTTP server lookup are sent using the Workstation Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMv1, NTLMv2 hashes *and* Basic Authentication. This server was successfully tested on IE 6 to IE 10, Firefox, Chrome, Safari.

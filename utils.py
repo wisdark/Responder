@@ -328,6 +328,7 @@ def StartupMessage():
 	print '    %-27s' % "SMTP server" + (enabled if settings.Config.SMTP_On_Off else disabled)
 	print '    %-27s' % "DNS server" + (enabled if settings.Config.DNS_On_Off else disabled)
 	print '    %-27s' % "LDAP server" + (enabled if settings.Config.LDAP_On_Off else disabled)
+	print '    %-27s' % "RDP server" + (enabled if settings.Config.RDP_On_Off else disabled)
 	print ""
 
 	print color("[+] ", 2, 1) + "HTTP Options:"

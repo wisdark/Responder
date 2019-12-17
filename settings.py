@@ -20,7 +20,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 2.3.3.9'
+__version__ = 'Responder 2.3.4.0'
 
 class Settings:
 	
@@ -88,6 +88,7 @@ class Settings:
 		self.SMTP_On_Off     = self.toBool(config.get('Responder Core', 'SMTP'))
 		self.LDAP_On_Off     = self.toBool(config.get('Responder Core', 'LDAP'))
 		self.DNS_On_Off      = self.toBool(config.get('Responder Core', 'DNS'))
+		self.RDP_On_Off      = self.toBool(config.get('Responder Core', 'RDP'))
 		self.Krb_On_Off      = self.toBool(config.get('Responder Core', 'Kerberos'))
 
 		# Db File
