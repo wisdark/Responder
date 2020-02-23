@@ -14,13 +14,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import utils
-import ConfigParser
+import utils, sys
+if (sys.version_info > (3, 0)):
+	import configparser as ConfigParser
+else:
+	import ConfigParser
 import subprocess
 
 from utils import *
 
-__version__ = 'Responder 2.3.4.0'
+__version__ = 'Responder 3.0.0.0'
 
 class Settings:
 	
@@ -66,13 +69,17 @@ class Settings:
 	def populate(self, options):
 
 		if options.Interface is None and utils.IsOsX() is False:
-			print utils.color("Error: -I <if> mandatory option is missing", 1)
+			print(utils.color("Error: -I <if> mandatory option is missing", 1))
 			sys.exit(-1)
 
 		if options.Interface == "ALL" and options.OURIP == None:
-			print utils.color("Error: -i is missing.\nWhen using -I ALL you need to provide your current ip address", 1)
+			print(utils.color("Error: -i is missing.\nWhen using -I ALL you need to provide your current ip address", 1))
 			sys.exit(-1)
-
+		#Python version
+		if (sys.version_info > (3, 0)):
+			self.PY2OR3     = "PY3"
+		else:
+			self.PY2OR3	= "PY2"
 		# Config parsing
 		config = ConfigParser.ConfigParser()
 		config.read(os.path.join(self.ResponderPATH, 'Responder.conf'))
@@ -136,29 +143,29 @@ class Settings:
 		self.HtmlToInject     = config.get('HTTP Server', 'HtmlToInject')
 
 		if not os.path.exists(self.Html_Filename):
-			print utils.color("/!\ Warning: %s: file not found" % self.Html_Filename, 3, 1)
+			print(utils.color("/!\ Warning: %s: file not found" % self.Html_Filename, 3, 1))
 
 		if not os.path.exists(self.Exe_Filename):
-			print utils.color("/!\ Warning: %s: file not found" % self.Exe_Filename, 3, 1)
+			print(utils.color("/!\ Warning: %s: file not found" % self.Exe_Filename, 3, 1))
 
 		# SSL Options
 		self.SSLKey  = config.get('HTTPS Server', 'SSLKey')
 		self.SSLCert = config.get('HTTPS Server', 'SSLCert')
 
 		# Respond to hosts
-		self.RespondTo         = filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondTo').strip().split(',')])
-		self.RespondToName     = filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondToName').strip().split(',')])
-		self.DontRespondTo     = filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondTo').strip().split(',')])
-		self.DontRespondToName = filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondToName').strip().split(',')])
+		self.RespondTo         = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondTo').strip().split(',')]))
+		self.RespondToName     = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondToName').strip().split(',')]))
+		self.DontRespondTo     = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondTo').strip().split(',')]))
+		self.DontRespondToName = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondToName').strip().split(',')]))
 
 		# Auto Ignore List
 		self.AutoIgnore                       = self.toBool(config.get('Responder Core', 'AutoIgnoreAfterSuccess'))
 		self.CaptureMultipleCredentials       = self.toBool(config.get('Responder Core', 'CaptureMultipleCredentials'))
-                self.CaptureMultipleHashFromSameHost  = self.toBool(config.get('Responder Core', 'CaptureMultipleHashFromSameHost'))
+		self.CaptureMultipleHashFromSameHost  = self.toBool(config.get('Responder Core', 'CaptureMultipleHashFromSameHost'))
 		self.AutoIgnoreList                   = []
 
 		# CLI options
-                self.ExternalIP         = options.ExternalIP
+		self.ExternalIP         = options.ExternalIP
 		self.LM_On_Off          = options.LM_On_Off
 		self.WPAD_On_Off        = options.WPAD_On_Off
 		self.Wredirect          = options.Wredirect
@@ -174,41 +181,41 @@ class Settings:
 		self.ProxyAuth_On_Off   = options.ProxyAuth_On_Off
 		self.CommandLine        = str(sys.argv)
 
-                if self.ExternalIP:
-                        self.ExternalIPAton = socket.inet_aton(self.ExternalIP)
+		if self.ExternalIP:
+			self.ExternalIPAton = socket.inet_aton(self.ExternalIP)
 
 		if self.HtmlToInject is None:
 			self.HtmlToInject = ''
 
-                self.Bind_To         = utils.FindLocalIP(self.Interface, self.OURIP)
+		self.Bind_To         = utils.FindLocalIP(self.Interface, self.OURIP)
 
-                if self.Interface == "ALL":
+		if self.Interface == "ALL":
                 	self.Bind_To_ALL  = True
-                else:
-                        self.Bind_To_ALL  = False
+		else:
+			self.Bind_To_ALL  = False
 
-                if self.Interface == "ALL":
-                	self.IP_aton   = socket.inet_aton(self.OURIP)
-                else:
-                	self.IP_aton   = socket.inet_aton(self.Bind_To)
+		if self.Interface == "ALL":
+			self.IP_aton   = socket.inet_aton(self.OURIP)
+		else:
+			self.IP_aton   = socket.inet_aton(self.Bind_To)
 
 		self.Os_version      = sys.platform
 
 		# Set up Challenge
 		self.NumChal = config.get('Responder Core', 'Challenge')
-                if self.NumChal.lower() == 'random':
-                   self.NumChal = "random"
+		if self.NumChal.lower() == 'random':
+			self.NumChal = "random"
 
 		if len(self.NumChal) is not 16 and not "random":
-			print utils.color("[!] The challenge must be exactly 16 chars long.\nExample: 1122334455667788", 1)
+			print(utils.color("[!] The challenge must be exactly 16 chars long.\nExample: 1122334455667788", 1))
 			sys.exit(-1)
 
 		self.Challenge = ""
-                if self.NumChal.lower() == 'random':
-                   pass
-                else: 
-		   for i in range(0, len(self.NumChal),2):
-	               self.Challenge += self.NumChal[i:i+2].decode("hex")
+		if self.NumChal.lower() == 'random':
+			pass
+		else: 
+			for i in range(0, len(self.NumChal),2):
+				self.Challenge += self.NumChal[i:i+2].decode("hex")
 
 		# Set up logging
 		logging.basicConfig(filename=self.SessionLogFile, level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -255,7 +262,7 @@ class Settings:
 			utils.DumpConfig(self.ResponderConfigDump, Message)
 			utils.DumpConfig(self.ResponderConfigDump,str(self))
 		except AttributeError as ex:
-			print "Missing Module:", ex
+			print("Missing Module:", ex)
 			pass
 
 def init():

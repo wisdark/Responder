@@ -16,8 +16,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import optparse
 import ssl
-
-from SocketServer import TCPServer, UDPServer, ThreadingMixIn
+try:
+	from SocketServer import TCPServer, UDPServer, ThreadingMixIn
+except:
+	from socketserver import TCPServer, UDPServer, ThreadingMixIn
 from threading import Thread
 from utils import *
 import struct
@@ -45,10 +47,10 @@ parser.add_option('-v','--verbose',        action="store_true", help="Increase v
 options, args = parser.parse_args()
 
 if not os.geteuid() == 0:
-    print color("[!] Responder must be run as root.")
+    print(color("[!] Responder must be run as root."))
     sys.exit(-1)
 elif options.OURIP is None and IsOsX() is True:
-    print "\n\033[1m\033[31mOSX detected, -i mandatory option is missing\033[0m\n"
+    print("\n\033[1m\033[31mOSX detected, -i mandatory option is missing\033[0m\n")
     parser.print_help()
     exit(-1)
 
@@ -60,7 +62,7 @@ StartupMessage()
 settings.Config.ExpandIPRanges()
 
 if settings.Config.AnalyzeMode:
-	print color('[i] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1)
+	print(color('[i] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1))
 
 #Create the DB, before we start Responder.
 CreateResponderDb()
@@ -69,11 +71,15 @@ class ThreadingUDPServer(ThreadingMixIn, UDPServer):
 	def server_bind(self):
 		if OsInterfaceIsSupported():
 			try:
-                                if settings.Config.Bind_To_ALL:
-                                	pass
-                                else:
-					self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
+				if settings.Config.Bind_To_ALL:
+					pass
+				else:
+					if (sys.version_info > (3, 0)):
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
+					else:
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
 			except:
+				raise
 				pass
 		UDPServer.server_bind(self)
 
@@ -81,11 +87,15 @@ class ThreadingTCPServer(ThreadingMixIn, TCPServer):
 	def server_bind(self):
 		if OsInterfaceIsSupported():
 			try:
-                                if settings.Config.Bind_To_ALL:
-                                	pass
-                                else:
-					self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
+				if settings.Config.Bind_To_ALL:
+					pass
+				else:
+					if (sys.version_info > (3, 0)):
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
+					else:
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
 			except:
+				raise
 				pass
 		TCPServer.server_bind(self)
 
@@ -93,13 +103,17 @@ class ThreadingTCPServerAuth(ThreadingMixIn, TCPServer):
 	def server_bind(self):
 		if OsInterfaceIsSupported():
 			try:
-                                if settings.Config.Bind_To_ALL:
-                                	pass
-                                else:
-					self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
+				if settings.Config.Bind_To_ALL:
+					pass
+				else:
+					if (sys.version_info > (3, 0)):
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
+					else:
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
 			except:
+				raise
 				pass
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
 		TCPServer.server_bind(self)
 
 class ThreadingUDPMDNSServer(ThreadingMixIn, UDPServer):
@@ -113,11 +127,15 @@ class ThreadingUDPMDNSServer(ThreadingMixIn, UDPServer):
 
 		if OsInterfaceIsSupported():
 			try:
-                                if settings.Config.Bind_To_ALL:
-                                	pass
-                                else:
-					self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
+				if settings.Config.Bind_To_ALL:
+					pass
+				else:
+					if (sys.version_info > (3, 0)):
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
+					else:
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
 			except:
+				raise
 				pass
 		UDPServer.server_bind(self)
 
@@ -131,12 +149,16 @@ class ThreadingUDPLLMNRServer(ThreadingMixIn, UDPServer):
 		
 		if OsInterfaceIsSupported():
 			try:
-                                if settings.Config.Bind_To_ALL:
-                                	pass
-                                else:
-					self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
+				if settings.Config.Bind_To_ALL:
+					pass
+				else:
+					if (sys.version_info > (3, 0)):
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
+					else:
+						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
 			except:
-				pass
+				raise
+				#pass
 		UDPServer.server_bind(self)
 
 ThreadingUDPServer.allow_reuse_address = 1
@@ -150,7 +172,7 @@ def serve_thread_udp_broadcast(host, port, handler):
 		server = ThreadingUDPServer((host, port), handler)
 		server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_NBTNS_poisoner(host, port, handler):
 	serve_thread_udp_broadcast(host, port, handler)
@@ -160,15 +182,15 @@ def serve_MDNS_poisoner(host, port, handler):
 		server = ThreadingUDPMDNSServer((host, port), handler)
 		server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_LLMNR_poisoner(host, port, handler):
 	try:
 		server = ThreadingUDPLLMNRServer((host, port), handler)
 		server.serve_forever()
 	except:
-                raise
-		print color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running."
+		raise
+		print(color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_thread_udp(host, port, handler):
 	try:
@@ -179,7 +201,7 @@ def serve_thread_udp(host, port, handler):
 			server = ThreadingUDPServer((host, port), handler)
 			server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting UDP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_thread_tcp(host, port, handler):
 	try:
@@ -190,7 +212,7 @@ def serve_thread_tcp(host, port, handler):
 			server = ThreadingTCPServer((host, port), handler)
 			server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting TCP server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting TCP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_thread_tcp_auth(host, port, handler):
 	try:
@@ -201,7 +223,7 @@ def serve_thread_tcp_auth(host, port, handler):
 			server = ThreadingTCPServerAuth((host, port), handler)
 			server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting TCP server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting TCP server on port " + str(port) + ", check permissions or other servers running.")
 
 def serve_thread_SSL(host, port, handler):
 	try:
@@ -218,7 +240,7 @@ def serve_thread_SSL(host, port, handler):
 			server.socket = ssl.wrap_socket(server.socket, certfile=cert, keyfile=key, server_side=True)
 			server.serve_forever()
 	except:
-		print color("[!] ", 1, 1) + "Error starting SSL server on port " + str(port) + ", check permissions or other servers running."
+		print(color("[!] ", 1, 1) + "Error starting SSL server on port " + str(port) + ", check permissions or other servers running.")
 
 def main():
 	try:
@@ -306,7 +328,7 @@ def main():
 			thread.setDaemon(True)
 			thread.start()
 
-		print color('[+]', 2, 1) + " Listening for events..."
+		print(color('[+]', 2, 1) + " Listening for events...")
 
 		while True:
 			time.sleep(1)

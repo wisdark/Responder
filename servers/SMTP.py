@@ -16,26 +16,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from utils import *
 from base64 import b64decode
-from SocketServer import BaseRequestHandler
+if settings.Config.PY2OR3 is "PY3":
+	from socketserver import BaseRequestHandler
+else:
+	from SocketServer import BaseRequestHandler
 from packets import SMTPGreeting, SMTPAUTH, SMTPAUTH1, SMTPAUTH2
 
 class ESMTP(BaseRequestHandler):
 
 	def handle(self):
 		try:
-			self.request.send(str(SMTPGreeting()))
+			self.request.send(NetworkSendBufferPython2or3(SMTPGreeting()))
 			data = self.request.recv(1024)
 
-			if data[0:4] == "EHLO" or data[0:4] == "ehlo":
-				self.request.send(str(SMTPAUTH()))
+			if data[0:4] == b'EHLO' or data[0:4] == b'ehlo':
+				self.request.send(NetworkSendBufferPython2or3(SMTPAUTH()))
 				data = self.request.recv(1024)
 
-			if data[0:4] == "AUTH":
-				AuthPlain = re.findall(r'(?<=AUTH PLAIN )[^\r]*', data)
+			if data[0:4] == b'AUTH':
+				AuthPlain = re.findall(b'(?<=AUTH PLAIN )[^\r]*', data)
 				if AuthPlain:
-					User = filter(None, b64decode(AuthPlain[0]).split('\x00'))
-					Username = User[0]
-					Password = User[1]
+					User = list(filter(None, b64decode(AuthPlain[0]).split(b'\x00')))
+					Username = User[0].decode('latin-1')
+					Password = User[1].decode('latin-1')
 
 					SaveToDb({
 						'module': 'SMTP', 
@@ -46,19 +49,19 @@ class ESMTP(BaseRequestHandler):
 						'fullhash': Username+":"+Password,
 						})
 
-                                else:
-					self.request.send(str(SMTPAUTH1()))
+				else:
+					self.request.send(NetworkSendBufferPython2or3(SMTPAUTH1()))
 					data = self.request.recv(1024)
 				
 					if data:
 						try:
-							User = filter(None, b64decode(data).split('\x00'))
-							Username = User[0]
-							Password = User[1]
+							User = list(filter(None, b64decode(data).split(b'\x00')))
+							Username = User[0].decode('latin-1')
+							Password = User[1].decode('latin-1')
 						except:
-							Username = b64decode(data)
+							Username = b64decode(data).decode('latin-1')
 
-							self.request.send(str(SMTPAUTH2()))
+							self.request.send(NetworkSendBufferPython2or3(SMTPAUTH2()))
 							data = self.request.recv(1024)
 
 							if data:
@@ -75,5 +78,4 @@ class ESMTP(BaseRequestHandler):
 						})
 
 		except Exception:
-                        raise
 			pass

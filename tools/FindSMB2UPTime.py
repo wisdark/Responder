@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# This file is part of Responder, a network take-over set of tools 
+# This file is part of Responder, a network take-over set of tools
 # created and maintained by Laurent Gaffie.
 # email: laurent.gaffie@gmail.com
 # This program is free software: you can redistribute it and/or modify
@@ -34,23 +34,23 @@ def GetBootTime(data):
 
 def IsDCVuln(t, host):
     if t[0] == 0:
-        print "Server", host[0], "did not disclose its boot time"
+        print("Server", host[0], "did not disclose its boot time")
         return
-    
+
     Date = datetime.datetime(2014, 11, 17, 0, 30)
     if t[0] < Date:
-       print "System is up since:", t[1]
-       print "This system may be vulnerable to MS14-068"
-    Date = datetime.datetime(2017, 03, 14, 0, 30)
+        print("System is up since:", t[1])
+        print("This system may be vulnerable to MS14-068")
+    Date = datetime.datetime(2017, 0o3, 14, 0, 30)
     if t[0] < Date:
-       print "System is up since:", t[1]
-       print "This system may be vulnerable to MS17-010"
-    print "Server", host[0], "is up since:", t[1]
+        print("System is up since:", t[1])
+        print("This system may be vulnerable to MS17-010")
+    print("Server", host[0], "is up since:", t[1])
 
 
 def run(host):
     s = socket(AF_INET, SOCK_STREAM)
-    s.settimeout(5)       
+    s.settimeout(5)
     try:
         s.connect(host)
 
@@ -64,7 +64,7 @@ def run(host):
 
         data = s.recv(1024)
         if data[4:5] == "\xff":
-            print "Server", host[0], "doesn't support SMBv2" 
+            print("Server", host[0], "doesn't support SMBv2")
         if data[4:5] == "\xfe":
             IsDCVuln(GetBootTime(data[116:124]), host)
 
@@ -75,10 +75,10 @@ def run(host):
         s.close()
         pass
 
-def atod(a): 
+def atod(a):
     return struct.unpack("!L",inet_aton(a))[0]
 
-def dtoa(d): 
+def dtoa(d):
     return inet_ntoa(struct.pack("!L", d))
 
 if __name__ == "__main__":

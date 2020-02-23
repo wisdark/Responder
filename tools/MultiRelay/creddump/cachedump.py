@@ -15,19 +15,34 @@
 # You should have received a copy of the GNU General Public License
 # along with creddump.  If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=invalid-name,missing-docstring
+
 """
 @author:       Brendan Dolan-Gavitt
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
 
-
 import sys
 from framework.win32.domcachedump import dump_file_hashes
 
-if len(sys.argv) < 3:
-    print "usage: %s bootkey <security hive>" % sys.argv[0]
+
+def showUsage():
+    print("usage: %s <system hive> <security hive> <Vista/7>" % sys.argv[0])
+    print("\nExample (Windows Vista/7):")
+    print("%s /path/to/System32/config/SYSTEM /path/to/System32/config/SECURITY true" % sys.argv[0])
+    print("\nExample (Windows XP):")
+    print("%s /path/to/System32/SYSTEM /path/to/System32/config/SECURITY false" % sys.argv[0])
+
+
+if len(sys.argv) < 4:
+    showUsage()
     sys.exit(1)
 
-dump_file_hashes(sys.argv[1].decode("hex"), sys.argv[2])
+if sys.argv[3].lower() not in ["true", "false"]:
+    showUsage()
+    sys.exit(1)
 
+vista = sys.argv[3].lower() == "true"
+
+dump_file_hashes(sys.argv[1], sys.argv[2], sys.argv[3])

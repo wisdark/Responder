@@ -39,11 +39,11 @@ def GetResponderCompleteNTLMv1Hash(cursor):
      return Output
 
 cursor = DbConnect()
-print "Dumping NTLMV2 hashes:"
+print("Dumping NTLMV2 hashes:")
 v2 = GetResponderCompleteNTLMv2Hash(cursor)
 DumpHashToFile("DumpNTLMv2.txt", v2)
-print v2
-print "\nDumping NTLMv1 hashes:"
+print(v2)
+print("\nDumping NTLMv1 hashes:")
 v1 = GetResponderCompleteNTLMv1Hash(cursor)
 DumpHashToFile("DumpNTLMv1.txt", v1)
-print v1
+print(v1)

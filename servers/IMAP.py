@@ -14,36 +14,35 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import sys
 from utils import *
-from SocketServer import BaseRequestHandler
+if (sys.version_info > (3, 0)):
+	from socketserver import BaseRequestHandler
+else:
+	from SocketServer import BaseRequestHandler
 from packets import IMAPGreeting, IMAPCapability, IMAPCapabilityEnd
 
 class IMAP(BaseRequestHandler):
 	def handle(self):
 		try:
-			self.request.send(str(IMAPGreeting()))
+			self.request.send(NetworkSendBufferPython2or3(IMAPGreeting()))
 			data = self.request.recv(1024)
-
-			if data[5:15] == "CAPABILITY":
+			if data[5:15] == b'CAPABILITY':
 				RequestTag = data[0:4]
-				self.request.send(str(IMAPCapability()))
-				self.request.send(str(IMAPCapabilityEnd(Tag=RequestTag)))
+				self.request.send(NetworkSendBufferPython2or3(IMAPCapability()))
+				self.request.send(NetworkSendBufferPython2or3(IMAPCapabilityEnd(Tag=RequestTag.decode("latin-1"))))
 				data = self.request.recv(1024)
 
-			if data[5:10] == "LOGIN":
-				Credentials = data[10:].strip()
-
+			if data[5:10] == b'LOGIN':
+				Credentials = data[10:].strip().decode("latin-1").split('"')
 				SaveToDb({
 					'module': 'IMAP', 
 					'type': 'Cleartext', 
 					'client': self.client_address[0], 
-					'user': Credentials[0], 
-					'cleartext': Credentials[1], 
-					'fullhash': Credentials[0]+":"+Credentials[1],
+					'user': Credentials[1], 
+					'cleartext': Credentials[3], 
+					'fullhash': Credentials[1]+":"+Credentials[3],
 				})
 
-				## FIXME: Close connection properly
-				## self.request.send(str(ditchthisconnection()))
-				## data = self.request.recv(1024)
 		except Exception:
 			pass

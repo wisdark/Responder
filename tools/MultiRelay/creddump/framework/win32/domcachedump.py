@@ -21,14 +21,14 @@
 
 from framework.win32.rawreg import *
 from framework.addrspace import HiveFileAddressSpace
-#from framework.win32.hashdump import get_bootkey
+from framework.win32.hashdump import get_bootkey
 from framework.win32.lsasecrets import get_secret_by_name,get_lsa_key
 from Crypto.Hash import HMAC
-from Crypto.Cipher import ARC4
+from Crypto.Cipher import ARC4, AES
 from struct import unpack
 
-def get_nlkm(secaddr, lsakey):
-    return get_secret_by_name(secaddr, 'NL$KM', lsakey)
+def get_nlkm(secaddr, lsakey, vista):
+    return get_secret_by_name(secaddr, 'NL$KM', lsakey, vista)
 
 def decrypt_hash(edata, nlkm, ch):
     hmac_md5 = HMAC.new(nlkm,ch)
@@ -37,6 +37,21 @@ def decrypt_hash(edata, nlkm, ch):
     rc4 = ARC4.new(rc4key)
     data = rc4.encrypt(edata)
     return data
+
+def decrypt_hash_vista(edata, nlkm, ch):
+    """
+    Based on code from http://lab.mediaservice.net/code/cachedump.rb
+    """
+    aes = AES.new(nlkm[16:32], AES.MODE_CBC, ch)
+
+    out = bytearray()
+    for i in range(0, len(edata), 16):
+        buf = edata[i : i+16]
+        if len(buf) < 16:
+            buf += (16 - len(buf)) * b"\00"
+
+        out += aes.decrypt(buf)
+    return out
 
 def parse_cache_entry(cache_data):
     (uname_len, domain_len) = unpack("<HH", cache_data[:4])
@@ -48,9 +63,9 @@ def parse_cache_entry(cache_data):
 def parse_decrypted_cache(dec_data, uname_len,
         domain_len, domain_name_len):
     uname_off = 72
-    pad = 2 * ( ( uname_len / 2 ) % 2 )
+    pad = 2 * ( ( uname_len // 2 ) % 2 )
     domain_off = uname_off + uname_len + pad
-    pad = 2 * ( ( domain_len / 2 ) % 2 )
+    pad = 2 * ( ( domain_len // 2 ) % 2 )
     domain_name_off = domain_off + domain_len + pad
 
     hash = dec_data[:0x10]
@@ -63,16 +78,16 @@ def parse_decrypted_cache(dec_data, uname_len,
 
     return (username, domain, domain_name, hash)
 
-def dump_hashes(Key, secaddr):
-    bootkey = Key
+def dump_hashes(sysaddr, secaddr, vista):
+    bootkey = get_bootkey(sysaddr)
     if not bootkey:
         return []
 
-    lsakey = get_lsa_key(secaddr, bootkey)
+    lsakey = get_lsa_key(secaddr, bootkey, vista)
     if not lsakey:
         return []
 
-    nlkm = get_nlkm(secaddr, lsakey)
+    nlkm = get_nlkm(secaddr, lsakey, vista)
     if not nlkm:
         return []
 
@@ -86,7 +101,7 @@ def dump_hashes(Key, secaddr):
 
     hashes = []
     for v in values(cache):
-        if v.Name == "NL$Control": continue
+        if v.Name == b"NL$Control": continue
         
         data = v.space.read(v.Data.value, v.DataLength.value)
 
@@ -97,7 +112,11 @@ def dump_hashes(Key, secaddr):
         if uname_len == 0:
             continue
 
-        dec_data = decrypt_hash(enc_data, nlkm, ch)
+        if vista:
+            dec_data = decrypt_hash_vista(enc_data, nlkm, ch)
+        else:
+            dec_data = decrypt_hash(enc_data, nlkm, ch)
+
 
         (username, domain, domain_name,
             hash) = parse_decrypted_cache(dec_data, uname_len,
@@ -107,11 +126,10 @@ def dump_hashes(Key, secaddr):
 
     return hashes 
 
-def dump_file_hashes(Key, sechive_fname):
-    sysaddr = Key
+def dump_file_hashes(syshive_fname, sechive_fname, vista):
+    sysaddr = HiveFileAddressSpace(syshive_fname)
     secaddr = HiveFileAddressSpace(sechive_fname)
 
-    for (u, d, dn, hash) in dump_hashes(sysaddr, secaddr):
-        print "%s:%s:%s:%s" % (u.lower(), hash.encode('hex'),
-                               d.lower(), dn.lower())
-
+    for (u, d, dn, hash) in dump_hashes(sysaddr, secaddr, vista):
+        print("%s:%s:%s:%s" % (u.lower(), hash.hex(),
+                               d.lower(), dn.lower()))

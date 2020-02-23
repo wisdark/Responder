@@ -14,12 +14,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import struct
 import settings
+import codecs
 
 from base64 import b64decode, b64encode
 from odict import OrderedDict
-from utils import HTTPCurrentDate, RespondWithIPAton
+from utils import HTTPCurrentDate, RespondWithIPAton, StructPython2or3, NetworkRecvBufferPython2or3, StructWithLenPython2or3
 
 # Packet class handling all packet generation (see odict.py).
 class Packet():
@@ -55,9 +57,9 @@ class NBT_Ans(Packet):
 	])
 
 	def calculate(self,data):
-		self.fields["Tid"] = data[0:2]
-		self.fields["NbtName"] = data[12:46]
-                self.fields["IP"] = RespondWithIPAton()
+		self.fields["Tid"] = NetworkRecvBufferPython2or3(data[0:2])
+		self.fields["NbtName"] = NetworkRecvBufferPython2or3(data[12:46])
+		self.fields["IP"] = RespondWithIPAton()
 
 # DNS Answer Packet
 class DNS_Ans(Packet):
@@ -83,8 +85,8 @@ class DNS_Ans(Packet):
 	def calculate(self,data):
 		self.fields["Tid"] = data[0:2]
 		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
-                self.fields["IP"] = RespondWithIPAton()
-		self.fields["IPLen"] = struct.pack(">h",len(self.fields["IP"]))
+		self.fields["IP"] = RespondWithIPAton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
 
 # LLMNR Answer Packet
 class LLMNR_Ans(Packet):
@@ -111,10 +113,10 @@ class LLMNR_Ans(Packet):
 	])
 
 	def calculate(self):
-                self.fields["IP"] = RespondWithIPAton()
-		self.fields["IPLen"] = struct.pack(">h",len(self.fields["IP"]))
-		self.fields["AnswerNameLen"] = struct.pack(">h",len(self.fields["AnswerName"]))[1]
-		self.fields["QuestionNameLen"] = struct.pack(">h",len(self.fields["QuestionName"]))[1]
+		self.fields["IP"] = RespondWithIPAton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+		self.fields["AnswerNameLen"] = StructPython2or3(">B",self.fields["AnswerName"])
+		self.fields["QuestionNameLen"] = StructPython2or3(">B",self.fields["QuestionName"])
 
 # MDNS Answer Packet
 class MDNS_Ans(Packet):
@@ -135,7 +137,7 @@ class MDNS_Ans(Packet):
 	])
 
 	def calculate(self):
-		self.fields["IPLen"] = struct.pack(">h",len(self.fields["IP"]))
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
 
 ##### HTTP Packets #####
 class NTLM_Challenge(Packet):
@@ -181,26 +183,34 @@ class NTLM_Challenge(Packet):
 		self.fields["Av3Str"] = self.fields["Av3Str"].encode('utf-16le')
 		self.fields["Av4Str"] = self.fields["Av4Str"].encode('utf-16le')
 		self.fields["Av5Str"] = self.fields["Av5Str"].encode('utf-16le')
-
+		#Now from bytes to str..
+		self.fields["TargetNameStr"] = self.fields["TargetNameStr"].decode('latin-1')
+		self.fields["Av1Str"] = self.fields["Av1Str"].decode('latin-1')
+		self.fields["Av2Str"] = self.fields["Av2Str"].decode('latin-1')
+		self.fields["Av3Str"] = self.fields["Av3Str"].decode('latin-1')
+		self.fields["Av4Str"] = self.fields["Av4Str"].decode('latin-1')
+		self.fields["Av5Str"] = self.fields["Av5Str"].decode('latin-1')
 		# Then calculate
-		CalculateNameOffset = str(self.fields["Signature"])+str(self.fields["SignatureNull"])+str(self.fields["MessageType"])+str(self.fields["TargetNameLen"])+str(self.fields["TargetNameMaxLen"])+str(self.fields["TargetNameOffset"])+str(self.fields["NegoFlags"])+str(self.fields["ServerChallenge"])+str(self.fields["Reserved"])+str(self.fields["TargetInfoLen"])+str(self.fields["TargetInfoMaxLen"])+str(self.fields["TargetInfoOffset"])+str(self.fields["NTLMOsVersion"])
+
+		CalculateNameOffset = str(self.fields["Signature"])+str(self.fields["SignatureNull"])+str(self.fields["MessageType"])+str(self.fields["TargetNameLen"])+str(self.fields["TargetNameMaxLen"])+str(self.fields["TargetNameOffset"])+str(self.fields["NegoFlags"])+str("A"*8)+str(self.fields["Reserved"])+str(self.fields["TargetInfoLen"])+str(self.fields["TargetInfoMaxLen"])+str(self.fields["TargetInfoOffset"])+str(self.fields["NTLMOsVersion"])
+
 		CalculateAvPairsOffset = CalculateNameOffset+str(self.fields["TargetNameStr"])
 		CalculateAvPairsLen = str(self.fields["Av1"])+str(self.fields["Av1Len"])+str(self.fields["Av1Str"])+str(self.fields["Av2"])+str(self.fields["Av2Len"])+str(self.fields["Av2Str"])+str(self.fields["Av3"])+str(self.fields["Av3Len"])+str(self.fields["Av3Str"])+str(self.fields["Av4"])+str(self.fields["Av4Len"])+str(self.fields["Av4Str"])+str(self.fields["Av5"])+str(self.fields["Av5Len"])+str(self.fields["Av5Str"])+str(self.fields["Av6"])+str(self.fields["Av6Len"])
 
 		# Target Name Offsets
-		self.fields["TargetNameOffset"] = struct.pack("<i", len(CalculateNameOffset))
-		self.fields["TargetNameLen"] = struct.pack("<i", len(self.fields["TargetNameStr"]))[:2]
-		self.fields["TargetNameMaxLen"] = struct.pack("<i", len(self.fields["TargetNameStr"]))[:2]
+		self.fields["TargetNameOffset"] = StructPython2or3("<i",CalculateNameOffset)
+		self.fields["TargetNameLen"] = StructPython2or3("<h",self.fields["TargetNameStr"])
+		self.fields["TargetNameMaxLen"] = StructPython2or3("<h",self.fields["TargetNameStr"])
 		# AvPairs Offsets
-		self.fields["TargetInfoOffset"] = struct.pack("<i", len(CalculateAvPairsOffset))
-		self.fields["TargetInfoLen"] = struct.pack("<i", len(CalculateAvPairsLen))[:2]
-		self.fields["TargetInfoMaxLen"] = struct.pack("<i", len(CalculateAvPairsLen))[:2]
+		self.fields["TargetInfoOffset"] = StructPython2or3("<i",CalculateAvPairsOffset)
+		self.fields["TargetInfoLen"] = StructPython2or3("<h",CalculateAvPairsLen)
+		self.fields["TargetInfoMaxLen"] = StructPython2or3("<h",CalculateAvPairsLen)
 		# AvPairs StrLen
-		self.fields["Av1Len"] = struct.pack("<i", len(str(self.fields["Av1Str"])))[:2]
-		self.fields["Av2Len"] = struct.pack("<i", len(str(self.fields["Av2Str"])))[:2]
-		self.fields["Av3Len"] = struct.pack("<i", len(str(self.fields["Av3Str"])))[:2]
-		self.fields["Av4Len"] = struct.pack("<i", len(str(self.fields["Av4Str"])))[:2]
-		self.fields["Av5Len"] = struct.pack("<i", len(str(self.fields["Av5Str"])))[:2]
+		self.fields["Av1Len"] = StructPython2or3("<h",self.fields["Av1Str"])
+		self.fields["Av2Len"] = StructPython2or3("<h",self.fields["Av2Str"])
+		self.fields["Av3Len"] = StructPython2or3("<h",self.fields["Av3Str"])
+		self.fields["Av4Len"] = StructPython2or3("<h",self.fields["Av4Str"])
+		self.fields["Av5Len"] = StructPython2or3("<h",self.fields["Av5Str"])
 
 class IIS_Auth_401_Ans(Packet):
 	fields = OrderedDict([
@@ -417,18 +427,18 @@ class MSSQLPreLoginAnswer(Packet):
 		InstOpOffset = EncryptionOffset+str(self.fields["EncryptionStr"])
 		ThrdIDOffset = InstOpOffset+str(self.fields["InstOptStr"])
 
-		self.fields["Len"] = struct.pack(">h",len(CalculateCompletePacket))
+		self.fields["Len"] = StructWithLenPython2or3(">h",len(CalculateCompletePacket))
 		#Version
-		self.fields["VersionLen"] = struct.pack(">h",len(self.fields["VersionStr"]+self.fields["SubBuild"]))
-		self.fields["VersionOffset"] = struct.pack(">h",len(VersionOffset))
+		self.fields["VersionLen"] = StructWithLenPython2or3(">h",len(self.fields["VersionStr"]+self.fields["SubBuild"]))
+		self.fields["VersionOffset"] = StructWithLenPython2or3(">h",len(VersionOffset))
 		#Encryption
-		self.fields["EncryptionLen"] = struct.pack(">h",len(self.fields["EncryptionStr"]))
-		self.fields["EncryptionOffset"] = struct.pack(">h",len(EncryptionOffset))
+		self.fields["EncryptionLen"] = StructWithLenPython2or3(">h",len(self.fields["EncryptionStr"]))
+		self.fields["EncryptionOffset"] = StructWithLenPython2or3(">h",len(EncryptionOffset))
 		#InstOpt
-		self.fields["InstOptLen"] = struct.pack(">h",len(self.fields["InstOptStr"]))
-		self.fields["EncryptionOffset"] = struct.pack(">h",len(InstOpOffset))
+		self.fields["InstOptLen"] = StructWithLenPython2or3(">h",len(self.fields["InstOptStr"]))
+		self.fields["EncryptionOffset"] = StructWithLenPython2or3(">h",len(InstOpOffset))
 		#ThrdIDOffset
-		self.fields["ThrdIDOffset"] = struct.pack(">h",len(ThrdIDOffset))
+		self.fields["ThrdIDOffset"] = StructWithLenPython2or3(">h",len(ThrdIDOffset))
 
 class MSSQLNTLMChallengeAnswer(Packet):
 	fields = OrderedDict([
@@ -475,12 +485,12 @@ class MSSQLNTLMChallengeAnswer(Packet):
 
 	def calculate(self):
 		# First convert to unicode
-		self.fields["TargetNameStr"] = self.fields["TargetNameStr"].encode('utf-16le')
-		self.fields["Av1Str"] = self.fields["Av1Str"].encode('utf-16le')
-		self.fields["Av2Str"] = self.fields["Av2Str"].encode('utf-16le')
-		self.fields["Av3Str"] = self.fields["Av3Str"].encode('utf-16le')
-		self.fields["Av4Str"] = self.fields["Av4Str"].encode('utf-16le')
-		self.fields["Av5Str"] = self.fields["Av5Str"].encode('utf-16le')
+		self.fields["TargetNameStr"] = self.fields["TargetNameStr"].encode('utf-16le').decode('latin-1')
+		self.fields["Av1Str"] = self.fields["Av1Str"].encode('utf-16le').decode('latin-1')
+		self.fields["Av2Str"] = self.fields["Av2Str"].encode('utf-16le').decode('latin-1')
+		self.fields["Av3Str"] = self.fields["Av3Str"].encode('utf-16le').decode('latin-1')
+		self.fields["Av4Str"] = self.fields["Av4Str"].encode('utf-16le').decode('latin-1')
+		self.fields["Av5Str"] = self.fields["Av5Str"].encode('utf-16le').decode('latin-1')
 
 		# Then calculate
 		CalculateCompletePacket = str(self.fields["PacketType"])+str(self.fields["Status"])+str(self.fields["Len"])+str(self.fields["SPID"])+str(self.fields["PacketID"])+str(self.fields["Window"])+str(self.fields["TokenType"])+str(self.fields["SSPIBuffLen"])+str(self.fields["Signature"])+str(self.fields["SignatureNull"])+str(self.fields["MessageType"])+str(self.fields["TargetNameLen"])+str(self.fields["TargetNameMaxLen"])+str(self.fields["TargetNameOffset"])+str(self.fields["NegoFlags"])+str(self.fields["ServerChallenge"])+str(self.fields["Reserved"])+str(self.fields["TargetInfoLen"])+str(self.fields["TargetInfoMaxLen"])+str(self.fields["TargetInfoOffset"])+str(self.fields["NTLMOsVersion"])+str(self.fields["TargetNameStr"])+str(self.fields["Av1"])+str(self.fields["Av1Len"])+str(self.fields["Av1Str"])+str(self.fields["Av2"])+str(self.fields["Av2Len"])+str(self.fields["Av2Str"])+str(self.fields["Av3"])+str(self.fields["Av3Len"])+str(self.fields["Av3Str"])+str(self.fields["Av4"])+str(self.fields["Av4Len"])+str(self.fields["Av4Str"])+str(self.fields["Av5"])+str(self.fields["Av5Len"])+str(self.fields["Av5Str"])+str(self.fields["Av6"])+str(self.fields["Av6Len"])
@@ -489,22 +499,22 @@ class MSSQLNTLMChallengeAnswer(Packet):
 		CalculateAvPairsOffset = CalculateNameOffset+str(self.fields["TargetNameStr"])
 		CalculateAvPairsLen = str(self.fields["Av1"])+str(self.fields["Av1Len"])+str(self.fields["Av1Str"])+str(self.fields["Av2"])+str(self.fields["Av2Len"])+str(self.fields["Av2Str"])+str(self.fields["Av3"])+str(self.fields["Av3Len"])+str(self.fields["Av3Str"])+str(self.fields["Av4"])+str(self.fields["Av4Len"])+str(self.fields["Av4Str"])+str(self.fields["Av5"])+str(self.fields["Av5Len"])+str(self.fields["Av5Str"])+str(self.fields["Av6"])+str(self.fields["Av6Len"])
 
-		self.fields["Len"] = struct.pack(">h",len(CalculateCompletePacket))
-		self.fields["SSPIBuffLen"] = struct.pack("<i",len(CalculateSSPI))[:2]
+		self.fields["Len"] = StructWithLenPython2or3(">h",len(CalculateCompletePacket))
+		self.fields["SSPIBuffLen"] = StructWithLenPython2or3("<i",len(CalculateSSPI))[:2]
 		# Target Name Offsets
-		self.fields["TargetNameOffset"] = struct.pack("<i", len(CalculateNameOffset))
-		self.fields["TargetNameLen"] = struct.pack("<i", len(self.fields["TargetNameStr"]))[:2]
-		self.fields["TargetNameMaxLen"] = struct.pack("<i", len(self.fields["TargetNameStr"]))[:2]
+		self.fields["TargetNameOffset"] = StructWithLenPython2or3("<i", len(CalculateNameOffset))
+		self.fields["TargetNameLen"] = StructWithLenPython2or3("<i", len(self.fields["TargetNameStr"]))[:2]
+		self.fields["TargetNameMaxLen"] = StructWithLenPython2or3("<i", len(self.fields["TargetNameStr"]))[:2]
 		# AvPairs Offsets
-		self.fields["TargetInfoOffset"] = struct.pack("<i", len(CalculateAvPairsOffset))
-		self.fields["TargetInfoLen"] = struct.pack("<i", len(CalculateAvPairsLen))[:2]
-		self.fields["TargetInfoMaxLen"] = struct.pack("<i", len(CalculateAvPairsLen))[:2]
+		self.fields["TargetInfoOffset"] = StructWithLenPython2or3("<i", len(CalculateAvPairsOffset))
+		self.fields["TargetInfoLen"] = StructWithLenPython2or3("<i", len(CalculateAvPairsLen))[:2]
+		self.fields["TargetInfoMaxLen"] = StructWithLenPython2or3("<i", len(CalculateAvPairsLen))[:2]
 		# AvPairs StrLen
-		self.fields["Av1Len"] = struct.pack("<i", len(str(self.fields["Av1Str"])))[:2]
-		self.fields["Av2Len"] = struct.pack("<i", len(str(self.fields["Av2Str"])))[:2]
-		self.fields["Av3Len"] = struct.pack("<i", len(str(self.fields["Av3Str"])))[:2]
-		self.fields["Av4Len"] = struct.pack("<i", len(str(self.fields["Av4Str"])))[:2]
-		self.fields["Av5Len"] = struct.pack("<i", len(str(self.fields["Av5Str"])))[:2]
+		self.fields["Av1Len"] = StructWithLenPython2or3("<i", len(str(self.fields["Av1Str"])))[:2]
+		self.fields["Av2Len"] = StructWithLenPython2or3("<i", len(str(self.fields["Av2Str"])))[:2]
+		self.fields["Av3Len"] = StructWithLenPython2or3("<i", len(str(self.fields["Av3Str"])))[:2]
+		self.fields["Av4Len"] = StructWithLenPython2or3("<i", len(str(self.fields["Av4Str"])))[:2]
+		self.fields["Av5Len"] = StructWithLenPython2or3("<i", len(str(self.fields["Av5Str"])))[:2]
 
 ##### SMTP Packets #####
 class SMTPGreeting(Packet):
@@ -571,6 +581,11 @@ class POPOKPacket(Packet):
 		("CRLF",  "\r\n"),
 	])
 
+class POPNotOKPacket(Packet):
+	fields = OrderedDict([
+		("Code",  "-ERR"),
+		("CRLF",  "\r\n"),
+	])
 ##### LDAP Packets #####
 class LDAPSearchDefaultPacket(Packet):
 	fields = OrderedDict([
@@ -733,11 +748,11 @@ class LDAPNTLMChallenge(Packet):
 
 		###### Convert strings to Unicode first
 		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le').decode('latin-1')
 
 		###### Workstation Offset
 		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
@@ -749,23 +764,23 @@ class LDAPNTLMChallenge(Packet):
 		NTLMMessageLen = CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])+CalculateLenAvpairs
 
 		##### LDAP Len Calculation:
-		self.fields["ParserHeadASNLen"] = struct.pack(">i", len(CalculatePacketLen))
-		self.fields["OpHeadASNIDLen"] = struct.pack(">i", len(OperationPacketLen))
-		self.fields["SequenceHeaderLen"] = struct.pack(">B", len(NTLMMessageLen))
+		self.fields["ParserHeadASNLen"] = StructWithLenPython2or3(">i", len(CalculatePacketLen))
+		self.fields["OpHeadASNIDLen"] = StructWithLenPython2or3(">i", len(OperationPacketLen))
+		self.fields["SequenceHeaderLen"] = StructWithLenPython2or3(">B", len(NTLMMessageLen))
 		##### Workstation Offset Calculation:
-		self.fields["NTLMSSPNtWorkstationBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation))
-		self.fields["NTLMSSPNtWorkstationLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtWorkstationMaxLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
 		##### IvPairs Offset Calculation:
-		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtTargetInfoLen"] = struct.pack("<h", len(CalculateLenAvpairs))
-		self.fields["NTLMSSPNtTargetInfoMaxLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
 		##### IvPair Calculation:
-		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
 
 ##### SMB Packets #####
 class SMBHeader(Packet):
@@ -792,7 +807,7 @@ class SMBNego(Packet):
 	])
 
 	def calculate(self):
-		self.fields["bcc"] = struct.pack("<h",len(str(self.fields["data"])))
+		self.fields["bcc"] = StructPython2or3("<h",self.fields["data"])
 
 class SMBNegoData(Packet):
 	fields = OrderedDict([
@@ -807,7 +822,7 @@ class SMBNegoData(Packet):
 	def calculate(self):
 		CalculateBCC  = str(self.fields["separator1"])+str(self.fields["dialect1"])
 		CalculateBCC += str(self.fields["separator2"])+str(self.fields["dialect2"])
-		self.fields["bcc"] = struct.pack("<h", len(CalculateBCC))
+		self.fields["bcc"] = StructWithLenPython2or3("<h", len(CalculateBCC))
 
 class SMBSessionData(Packet):
 	fields = OrderedDict([
@@ -835,8 +850,8 @@ class SMBSessionData(Packet):
 	])
 	def calculate(self):
 		CompleteBCC = str(self.fields["AccountPassword"])+str(self.fields["AccountName"])+str(self.fields["AccountNameTerminator"])+str(self.fields["PrimaryDomain"])+str(self.fields["PrimaryDomainTerminator"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsTerminator"])+str(self.fields["NativeLanman"])+str(self.fields["NativeLanmanTerminator"])
-		self.fields["bcc"] = struct.pack("<h", len(CompleteBCC))
-		self.fields["PasswordLen"] = struct.pack("<h", len(str(self.fields["AccountPassword"])))
+		self.fields["bcc"] = StructWithLenPython2or3("<h", len(CompleteBCC))
+		self.fields["PasswordLen"] = StructWithLenPython2or3("<h", len(str(self.fields["AccountPassword"])))
 
 class SMBNegoFingerData(Packet):
 	fields = OrderedDict([
@@ -872,7 +887,7 @@ class SMBSessionFingerData(Packet):
 
 	])
 	def calculate(self):
-		self.fields["bcc1"] = struct.pack("<i", len(str(self.fields["Data"])))[:2]
+		self.fields["bcc1"] = StructPython2or3('<h',self.fields["Data"])
 
 class SMBTreeConnectData(Packet):
 	fields = OrderedDict([
@@ -891,9 +906,9 @@ class SMBTreeConnectData(Packet):
 
 	])
 	def calculate(self):
-		self.fields["PasswdLen"] = struct.pack("<h", len(str(self.fields["Passwd"])))[:2]
+		self.fields["PasswdLen"] = StructWithLenPython2or3("<h", len(str(self.fields["Passwd"])))[:2]
 		BccComplete = str(self.fields["Passwd"])+str(self.fields["Path"])+str(self.fields["PathTerminator"])+str(self.fields["Service"])+str(self.fields["Terminator"])
-		self.fields["Bcc"] = struct.pack("<h", len(BccComplete))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h", len(BccComplete))
 
 class RAPNetServerEnum3Data(Packet):
 	fields = OrderedDict([
@@ -943,16 +958,16 @@ class SMBTransRAPData(Packet):
 		else:
 		   self.fields["PipeTerminator"] = "\x00\x00\x00"
 		##Convert Path to Unicode first before any Len calc.
-		self.fields["PipeName"] = self.fields["PipeName"].encode('utf-16le')
+		self.fields["PipeName"] = self.fields["PipeName"].encode('utf-16le').decode('latin-1')
 		##Data Len
-		self.fields["TotalParamCount"] = struct.pack("<i", len(str(self.fields["Data"])))[:2]
-		self.fields["ParamCount"] = struct.pack("<i", len(str(self.fields["Data"])))[:2]
+		self.fields["TotalParamCount"] = StructWithLenPython2or3("<i", len(str(self.fields["Data"])))[:2]
+		self.fields["ParamCount"] = StructWithLenPython2or3("<i", len(str(self.fields["Data"])))[:2]
 		##Packet len
 		FindRAPOffset = str(self.fields["Wordcount"])+str(self.fields["TotalParamCount"])+str(self.fields["TotalDataCount"])+str(self.fields["MaxParamCount"])+str(self.fields["MaxDataCount"])+str(self.fields["MaxSetupCount"])+str(self.fields["Reserved"])+str(self.fields["Flags"])+str(self.fields["Timeout"])+str(self.fields["Reserved1"])+str(self.fields["ParamCount"])+str(self.fields["ParamOffset"])+str(self.fields["DataCount"])+str(self.fields["DataOffset"])+str(self.fields["SetupCount"])+str(self.fields["Reserved2"])+str(self.fields["Bcc"])+str(self.fields["Terminator"])+str(self.fields["PipeName"])+str(self.fields["PipeTerminator"])
-		self.fields["ParamOffset"] = struct.pack("<i", len(FindRAPOffset)+32)[:2]
+		self.fields["ParamOffset"] = StructWithLenPython2or3("<i", len(FindRAPOffset)+32)[:2]
 		##Bcc Buff Len
 		BccComplete    = str(self.fields["Terminator"])+str(self.fields["PipeName"])+str(self.fields["PipeTerminator"])+str(self.fields["Data"])
-		self.fields["Bcc"] = struct.pack("<i", len(BccComplete))[:2]
+		self.fields["Bcc"] = StructWithLenPython2or3("<i", len(BccComplete))[:2]
 
 class SMBNegoAnsLM(Packet):
 	fields = OrderedDict([
@@ -980,8 +995,8 @@ class SMBNegoAnsLM(Packet):
 		self.fields["Domain"] = self.fields["Domain"].encode('utf-16le')
 		self.fields["Server"] = self.fields["Server"].encode('utf-16le')
 		CompleteBCCLen =  str(self.fields["Key"])+str(self.fields["Domain"])+str(self.fields["DomainNull"])+str(self.fields["Server"])+str(self.fields["ServerNull"])
-		self.fields["Bcc"] = struct.pack("<h",len(CompleteBCCLen))
-		self.fields["Keylength"] = struct.pack("<h",len(self.fields["Key"]))[0]
+		self.fields["Bcc"] = StructWithLenPython2or3("<h",len(CompleteBCCLen))
+		self.fields["Keylength"] = StructWithLenPython2or3("<h",len(self.fields["Key"]))[0]
 
 class SMBNegoAns(Packet):
 	fields = OrderedDict([
@@ -1033,18 +1048,18 @@ class SMBNegoAns(Packet):
 		MechTypeLen = str(self.fields["NegThisMechASNId"])+str(self.fields["NegThisMechASNLen"])+str(self.fields["NegThisMech4ASNId"])+str(self.fields["NegThisMech4ASNLen"])+str(self.fields["NegThisMech4ASNStr"])
 		Tag3Len = str(self.fields["NegHintASNId"])+str(self.fields["NegHintASNLen"])+str(self.fields["NegHintTag0ASNId"])+str(self.fields["NegHintTag0ASNLen"])+str(self.fields["NegHintFinalASNId"])+str(self.fields["NegHintFinalASNLen"])+str(self.fields["NegHintFinalASNStr"])
 
-		self.fields["Bcc"] = struct.pack("<h",len(CompleteBCCLen1))
-		self.fields["InitContextTokenASNLen"] = struct.pack("<B", len(AsnLenStart))
-		self.fields["ThisMechASNLen"] = struct.pack("<B", len(str(self.fields["ThisMechASNStr"])))
-		self.fields["SpNegoTokenASNLen"] = struct.pack("<B", len(AsnLen2))
-		self.fields["NegTokenASNLen"] = struct.pack("<B", len(AsnLen2)-2)
-		self.fields["NegTokenTag0ASNLen"] = struct.pack("<B", len(MechTypeLen))
-		self.fields["NegThisMechASNLen"] = struct.pack("<B", len(MechTypeLen)-2)
-		self.fields["NegThisMech4ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech4ASNStr"])))
-		self.fields["NegTokenTag3ASNLen"] = struct.pack("<B", len(Tag3Len))
-		self.fields["NegHintASNLen"] = struct.pack("<B", len(Tag3Len)-2)
-		self.fields["NegHintTag0ASNLen"] = struct.pack("<B", len(Tag3Len)-4)
-		self.fields["NegHintFinalASNLen"] = struct.pack("<B", len(str(self.fields["NegHintFinalASNStr"])))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h",len(CompleteBCCLen1))
+		self.fields["InitContextTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLenStart))
+		self.fields["ThisMechASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["ThisMechASNStr"])))
+		self.fields["SpNegoTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2))
+		self.fields["NegTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2)-2)
+		self.fields["NegTokenTag0ASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen))
+		self.fields["NegThisMechASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen)-2)
+		self.fields["NegThisMech4ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech4ASNStr"])))
+		self.fields["NegTokenTag3ASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len))
+		self.fields["NegHintASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len)-2)
+		self.fields["NegHintTag0ASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len)-4)
+		self.fields["NegHintFinalASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegHintFinalASNStr"])))
 
 class SMBNegoKerbAns(Packet):
 	fields = OrderedDict([
@@ -1105,20 +1120,20 @@ class SMBNegoKerbAns(Packet):
 		MechTypeLen = str(self.fields["NegThisMechASNId"])+str(self.fields["NegThisMechASNLen"])+str(self.fields["NegThisMech1ASNId"])+str(self.fields["NegThisMech1ASNLen"])+str(self.fields["NegThisMech1ASNStr"])+str(self.fields["NegThisMech2ASNId"])+str(self.fields["NegThisMech2ASNLen"])+str(self.fields["NegThisMech2ASNStr"])+str(self.fields["NegThisMech3ASNId"])+str(self.fields["NegThisMech3ASNLen"])+str(self.fields["NegThisMech3ASNStr"])+str(self.fields["NegThisMech4ASNId"])+str(self.fields["NegThisMech4ASNLen"])+str(self.fields["NegThisMech4ASNStr"])
 		Tag3Len = str(self.fields["NegHintASNId"])+str(self.fields["NegHintASNLen"])+str(self.fields["NegHintTag0ASNId"])+str(self.fields["NegHintTag0ASNLen"])+str(self.fields["NegHintFinalASNId"])+str(self.fields["NegHintFinalASNLen"])+str(self.fields["NegHintFinalASNStr"])
 
-		self.fields["Bcc"] = struct.pack("<h",len(CompleteBCCLen1))
-		self.fields["InitContextTokenASNLen"] = struct.pack("<B", len(AsnLenStart))
-		self.fields["ThisMechASNLen"] = struct.pack("<B", len(str(self.fields["ThisMechASNStr"])))
-		self.fields["SpNegoTokenASNLen"] = struct.pack("<B", len(AsnLen2))
-		self.fields["NegTokenASNLen"] = struct.pack("<B", len(AsnLen2)-2)
-		self.fields["NegTokenTag0ASNLen"] = struct.pack("<B", len(MechTypeLen))
-		self.fields["NegThisMechASNLen"] = struct.pack("<B", len(MechTypeLen)-2)
-		self.fields["NegThisMech1ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech1ASNStr"])))
-		self.fields["NegThisMech2ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech2ASNStr"])))
-		self.fields["NegThisMech3ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech3ASNStr"])))
-		self.fields["NegThisMech4ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech4ASNStr"])))
-		self.fields["NegTokenTag3ASNLen"] = struct.pack("<B", len(Tag3Len))
-		self.fields["NegHintASNLen"] = struct.pack("<B", len(Tag3Len)-2)
-		self.fields["NegHintFinalASNLen"] = struct.pack("<B", len(str(self.fields["NegHintFinalASNStr"])))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h",len(CompleteBCCLen1))
+		self.fields["InitContextTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLenStart))
+		self.fields["ThisMechASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["ThisMechASNStr"])))
+		self.fields["SpNegoTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2))
+		self.fields["NegTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2)-2)
+		self.fields["NegTokenTag0ASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen))
+		self.fields["NegThisMechASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen)-2)
+		self.fields["NegThisMech1ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech1ASNStr"])))
+		self.fields["NegThisMech2ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech2ASNStr"])))
+		self.fields["NegThisMech3ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech3ASNStr"])))
+		self.fields["NegThisMech4ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech4ASNStr"])))
+		self.fields["NegTokenTag3ASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len))
+		self.fields["NegHintASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len)-2)
+		self.fields["NegHintFinalASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegHintFinalASNStr"])))
 
 class SMBSession1Data(Packet):
 	fields = OrderedDict([
@@ -1197,13 +1212,13 @@ class SMBSession1Data(Packet):
 	def calculate(self):
 		###### Convert strings to Unicode
 		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le')
-		self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le')
-		self.fields["NativeLAN"] = self.fields["NativeLAN"].encode('utf-16le')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le').decode('latin-1')
+		self.fields["NativeLAN"] = self.fields["NativeLAN"].encode('utf-16le').decode('latin-1')
 
 		###### SecBlobLen Calc:
 		AsnLen = str(self.fields["ChoiceTagASNId"])+str(self.fields["ChoiceTagASNLenOfLen"])+str(self.fields["ChoiceTagASNIdLen"])+str(self.fields["NegTokenTagASNId"])+str(self.fields["NegTokenTagASNLenOfLen"])+str(self.fields["NegTokenTagASNIdLen"])+str(self.fields["Tag0ASNId"])+str(self.fields["Tag0ASNIdLen"])+str(self.fields["NegoStateASNId"])+str(self.fields["NegoStateASNLen"])+str(self.fields["NegoStateASNValue"])+str(self.fields["Tag1ASNId"])+str(self.fields["Tag1ASNIdLen"])+str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])+str(self.fields["Tag2ASNId"])+str(self.fields["Tag2ASNIdLenOfLen"])+str(self.fields["Tag2ASNIdLen"])+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])
@@ -1213,18 +1228,18 @@ class SMBSession1Data(Packet):
 		BccLen = AsnLen+CalculateSecBlob+str(self.fields["NTLMSSPNTLMPadding"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsTerminator"])+str(self.fields["NativeLAN"])+str(self.fields["NativeLANTerminator"])
 
 		###### SecBlobLen
-		self.fields["SecBlobLen"] = struct.pack("<h", len(AsnLen+CalculateSecBlob))
-		self.fields["Bcc"] = struct.pack("<h", len(BccLen))
-		self.fields["ChoiceTagASNIdLen"] = struct.pack(">B", len(AsnLen+CalculateSecBlob)-3)
-		self.fields["NegTokenTagASNIdLen"] = struct.pack(">B", len(AsnLen+CalculateSecBlob)-6)
-		self.fields["Tag1ASNIdLen"] = struct.pack(">B", len(str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])))
-		self.fields["Tag1ASNId2Len"] = struct.pack(">B", len(str(self.fields["Tag1ASNId2Str"])))
-		self.fields["Tag2ASNIdLen"] = struct.pack(">B", len(CalculateSecBlob+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])))
-		self.fields["Tag3ASNIdLen"] = struct.pack(">B", len(CalculateSecBlob))
+		self.fields["SecBlobLen"] = StructWithLenPython2or3("<h", len(AsnLen+CalculateSecBlob))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h", len(BccLen))
+		self.fields["ChoiceTagASNIdLen"] = StructWithLenPython2or3(">B", len(AsnLen+CalculateSecBlob)-3)
+		self.fields["NegTokenTagASNIdLen"] = StructWithLenPython2or3(">B", len(AsnLen+CalculateSecBlob)-6)
+		self.fields["Tag1ASNIdLen"] = StructWithLenPython2or3(">B", len(str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])))
+		self.fields["Tag1ASNId2Len"] = StructWithLenPython2or3(">B", len(str(self.fields["Tag1ASNId2Str"])))
+		self.fields["Tag2ASNIdLen"] = StructWithLenPython2or3(">B", len(CalculateSecBlob+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])))
+		self.fields["Tag3ASNIdLen"] = StructWithLenPython2or3(">B", len(CalculateSecBlob))
 
 		###### Andxoffset calculation.
 		CalculateCompletePacket = str(self.fields["Wordcount"])+str(self.fields["AndXCommand"])+str(self.fields["Reserved"])+str(self.fields["Andxoffset"])+str(self.fields["Action"])+str(self.fields["SecBlobLen"])+str(self.fields["Bcc"])+BccLen
-		self.fields["Andxoffset"] = struct.pack("<h", len(CalculateCompletePacket)+32)
+		self.fields["Andxoffset"] = StructWithLenPython2or3("<h", len(CalculateCompletePacket)+32)
 
 		###### Workstation Offset
 		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
@@ -1233,21 +1248,21 @@ class SMBSession1Data(Packet):
 		CalculateLenAvpairs = str(self.fields["NTLMSSPNTLMChallengeAVPairsId"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsLen"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs2Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs3Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs5Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs6Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs6Len"])
 
 		##### Workstation Offset Calculation:
-		self.fields["NTLMSSPNtWorkstationBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation))
-		self.fields["NTLMSSPNtWorkstationLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtWorkstationMaxLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
 
 		##### IvPairs Offset Calculation:
-		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtTargetInfoLen"] = struct.pack("<h", len(CalculateLenAvpairs))
-		self.fields["NTLMSSPNtTargetInfoMaxLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
 
 		##### IvPair Calculation:
-		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
 
 class SMBSession2Accept(Packet):
 	fields = OrderedDict([
@@ -1268,7 +1283,7 @@ class SMBSession2Accept(Packet):
 		self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le')
 		self.fields["NativeLAN"] = self.fields["NativeLAN"].encode('utf-16le')
 		BccLen = str(self.fields["SSPIAccept"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsTerminator"])+str(self.fields["NativeLAN"])+str(self.fields["NativeLANTerminator"])
-		self.fields["Bcc"] = struct.pack("<h", len(BccLen))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h", len(BccLen))
 
 class SMBSessEmpty(Packet):
 	fields = OrderedDict([
@@ -1293,10 +1308,10 @@ class SMBTreeData(Packet):
 		## Complete Packet Len
 		CompletePacket= str(self.fields["Wordcount"])+str(self.fields["AndXCommand"])+str(self.fields["Reserved"])+str(self.fields["Andxoffset"])+str(self.fields["OptionalSupport"])+str(self.fields["MaxShareAccessRight"])+str(self.fields["GuestShareAccessRight"])+str(self.fields["Bcc"])+str(self.fields["Service"])+str(self.fields["ServiceTerminator"])
 		## AndXOffset
-		self.fields["Andxoffset"] = struct.pack("<H", len(CompletePacket)+32)
+		self.fields["Andxoffset"] = StructWithLenPython2or3("<H", len(CompletePacket)+32)
 		## BCC Len Calc
 		BccLen= str(self.fields["Service"])+str(self.fields["ServiceTerminator"])
-		self.fields["Bcc"] = struct.pack("<H", len(BccLen))
+		self.fields["Bcc"] = StructWithLenPython2or3("<H", len(BccLen))
 
 class SMBSessTreeAns(Packet):
 	fields = OrderedDict([
@@ -1325,12 +1340,12 @@ class SMBSessTreeAns(Packet):
 	def calculate(self):
 		## AndxOffset
 		CalculateCompletePacket = str(self.fields["Wordcount"])+str(self.fields["Command"])+str(self.fields["Reserved"])+str(self.fields["AndXoffset"])+str(self.fields["Action"])+str(self.fields["Bcc"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsNull"])+str(self.fields["NativeLan"])+str(self.fields["NativeLanNull"])
-		self.fields["AndXoffset"] = struct.pack("<i", len(CalculateCompletePacket)+32)[:2]
+		self.fields["AndXoffset"] = StructWithLenPython2or3("<i", len(CalculateCompletePacket)+32)[:2]
 		## BCC 1 and 2
 		CompleteBCCLen =  str(self.fields["NativeOs"])+str(self.fields["NativeOsNull"])+str(self.fields["NativeLan"])+str(self.fields["NativeLanNull"])
-		self.fields["Bcc"] = struct.pack("<h",len(CompleteBCCLen))
+		self.fields["Bcc"] = StructWithLenPython2or3("<h",len(CompleteBCCLen))
 		CompleteBCC2Len = str(self.fields["Service"])+str(self.fields["ServiceNull"])+str(self.fields["FileSystem"])+str(self.fields["FileSystemNull"])
-		self.fields["Bcc2"] = struct.pack("<h",len(CompleteBCC2Len))
+		self.fields["Bcc2"] = StructWithLenPython2or3("<h",len(CompleteBCC2Len))
 
 ### SMB2 Packets
 
@@ -1423,26 +1438,26 @@ class SMB2NegoAns(Packet):
 		Tag3Len = str(self.fields["NegHintASNId"])+str(self.fields["NegHintASNLen"])+str(self.fields["NegHintTag0ASNId"])+str(self.fields["NegHintTag0ASNLen"])+str(self.fields["NegHintFinalASNId"])+str(self.fields["NegHintFinalASNLen"])+str(self.fields["NegHintFinalASNStr"])
 
                 #Packet Struct len
-		self.fields["Len"] = struct.pack("<h",len(StructLen)+1)
+		self.fields["Len"] = StructWithLenPython2or3("<h",len(StructLen)+1)
                 #Sec Blob lens
-		self.fields["SecBlobOffSet"] = struct.pack("<h",len(StructLen)+64)
-		self.fields["SecBlobLen"] = struct.pack("<h",len(SecBlobLen))
+		self.fields["SecBlobOffSet"] = StructWithLenPython2or3("<h",len(StructLen)+64)
+		self.fields["SecBlobLen"] = StructWithLenPython2or3("<h",len(SecBlobLen))
                 #ASN Stuff
-		self.fields["InitContextTokenASNLen"] = struct.pack("<B", len(SecBlobLen)-2)
-		self.fields["ThisMechASNLen"] = struct.pack("<B", len(str(self.fields["ThisMechASNStr"])))
-		self.fields["SpNegoTokenASNLen"] = struct.pack("<B", len(AsnLen2))
-		self.fields["NegTokenASNLen"] = struct.pack("<B", len(AsnLen2)-2)
-		self.fields["NegTokenTag0ASNLen"] = struct.pack("<B", len(MechTypeLen))
-		self.fields["NegThisMechASNLen"] = struct.pack("<B", len(MechTypeLen)-2)
-		self.fields["NegThisMech1ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech1ASNStr"])))
-		self.fields["NegThisMech2ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech2ASNStr"])))
-		self.fields["NegThisMech3ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech3ASNStr"])))
-		self.fields["NegThisMech4ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech4ASNStr"])))
-		self.fields["NegThisMech5ASNLen"] = struct.pack("<B", len(str(self.fields["NegThisMech5ASNStr"])))
-		self.fields["NegTokenTag3ASNLen"] = struct.pack("<B", len(Tag3Len))
-		self.fields["NegHintASNLen"] = struct.pack("<B", len(Tag3Len)-2)
-		self.fields["NegHintTag0ASNLen"] = struct.pack("<B", len(Tag3Len)-4)
-		self.fields["NegHintFinalASNLen"] = struct.pack("<B", len(str(self.fields["NegHintFinalASNStr"])))
+		self.fields["InitContextTokenASNLen"] = StructWithLenPython2or3("<B", len(SecBlobLen)-2)
+		self.fields["ThisMechASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["ThisMechASNStr"])))
+		self.fields["SpNegoTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2))
+		self.fields["NegTokenASNLen"] = StructWithLenPython2or3("<B", len(AsnLen2)-2)
+		self.fields["NegTokenTag0ASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen))
+		self.fields["NegThisMechASNLen"] = StructWithLenPython2or3("<B", len(MechTypeLen)-2)
+		self.fields["NegThisMech1ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech1ASNStr"])))
+		self.fields["NegThisMech2ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech2ASNStr"])))
+		self.fields["NegThisMech3ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech3ASNStr"])))
+		self.fields["NegThisMech4ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech4ASNStr"])))
+		self.fields["NegThisMech5ASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegThisMech5ASNStr"])))
+		self.fields["NegTokenTag3ASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len))
+		self.fields["NegHintASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len)-2)
+		self.fields["NegHintTag0ASNLen"] = StructWithLenPython2or3("<B", len(Tag3Len)-4)
+		self.fields["NegHintFinalASNLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegHintFinalASNStr"])))
 
 class SMB2Session1Data(Packet):
 	fields = OrderedDict([
@@ -1515,13 +1530,13 @@ class SMB2Session1Data(Packet):
 
 	def calculate(self):
 		###### Convert strings to Unicode
-		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le')
-                
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le').decode('latin-1')
+
                 #Packet struct calc:
 		StructLen = str(self.fields["Len"])+str(self.fields["SessionFlag"])+str(self.fields["SecBlobOffSet"])+str(self.fields["SecBlobLen"])
 		###### SecBlobLen Calc:
@@ -1529,41 +1544,40 @@ class SMB2Session1Data(Packet):
 
 		AsnLen = str(self.fields["ChoiceTagASNId"])+str(self.fields["ChoiceTagASNLenOfLen"])+str(self.fields["ChoiceTagASNIdLen"])+str(self.fields["NegTokenTagASNId"])+str(self.fields["NegTokenTagASNLenOfLen"])+str(self.fields["NegTokenTagASNIdLen"])+str(self.fields["Tag0ASNId"])+str(self.fields["Tag0ASNIdLen"])+str(self.fields["NegoStateASNId"])+str(self.fields["NegoStateASNLen"])+str(self.fields["NegoStateASNValue"])+str(self.fields["Tag1ASNId"])+str(self.fields["Tag1ASNIdLen"])+str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])+str(self.fields["Tag2ASNId"])+str(self.fields["Tag2ASNIdLenOfLen"])+str(self.fields["Tag2ASNIdLen"])+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])
 
-
                 #Packet Struct len
-		self.fields["Len"] = struct.pack("<h",len(StructLen)+1)
-		self.fields["SecBlobLen"] = struct.pack("<H", len(AsnLen+CalculateSecBlob))
-                self.fields["SecBlobOffSet"] = struct.pack("<h",len(StructLen)+64)
+		self.fields["Len"] = StructWithLenPython2or3("<h",len(StructLen)+1)
+		self.fields["SecBlobLen"] = StructWithLenPython2or3("<H", len(AsnLen+CalculateSecBlob))
+		self.fields["SecBlobOffSet"] = StructWithLenPython2or3("<h",len(StructLen)+64)
 
 		###### ASN Stuff
-                if len(CalculateSecBlob) > 255:
-		   self.fields["Tag3ASNIdLen"] = struct.pack(">H", len(CalculateSecBlob))
-                else:
-                   self.fields["Tag3ASNIdLenOfLen"] = "\x81"
-		   self.fields["Tag3ASNIdLen"] = struct.pack(">B", len(CalculateSecBlob))
+		if len(CalculateSecBlob) > 255:
+			self.fields["Tag3ASNIdLen"] = StructWithLenPython2or3(">H", len(CalculateSecBlob))
+		else:
+			self.fields["Tag3ASNIdLenOfLen"] = "\x81"
+			self.fields["Tag3ASNIdLen"] = StructWithLenPython2or3(">B", len(CalculateSecBlob))
 
-                if len(AsnLen+CalculateSecBlob)-3 > 255:
-		   self.fields["ChoiceTagASNIdLen"] = struct.pack(">H", len(AsnLen+CalculateSecBlob)-4)
-                else:
-                   self.fields["ChoiceTagASNLenOfLen"] = "\x81"
-		   self.fields["ChoiceTagASNIdLen"] = struct.pack(">B", len(AsnLen+CalculateSecBlob)-3)
+		if len(AsnLen+CalculateSecBlob)-3 > 255:
+			self.fields["ChoiceTagASNIdLen"] = StructWithLenPython2or3(">H", len(AsnLen+CalculateSecBlob)-4)
+		else:
+			self.fields["ChoiceTagASNLenOfLen"] = "\x81"
+			self.fields["ChoiceTagASNIdLen"] = StructWithLenPython2or3(">B", len(AsnLen+CalculateSecBlob)-3)
 
-                if len(AsnLen+CalculateSecBlob)-7 > 255:
-		   self.fields["NegTokenTagASNIdLen"] = struct.pack(">H", len(AsnLen+CalculateSecBlob)-8)
-                else:
-                   self.fields["NegTokenTagASNLenOfLen"] = "\x81"
-		   self.fields["NegTokenTagASNIdLen"] = struct.pack(">B", len(AsnLen+CalculateSecBlob)-7)
+		if len(AsnLen+CalculateSecBlob)-7 > 255:
+			self.fields["NegTokenTagASNIdLen"] = StructWithLenPython2or3(">H", len(AsnLen+CalculateSecBlob)-8)
+		else:
+			self.fields["NegTokenTagASNLenOfLen"] = "\x81"
+			self.fields["NegTokenTagASNIdLen"] = StructWithLenPython2or3(">B", len(AsnLen+CalculateSecBlob)-7)
                 
-                tag2length = CalculateSecBlob+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])
+		tag2length = CalculateSecBlob+str(self.fields["Tag3ASNId"])+str(self.fields["Tag3ASNIdLenOfLen"])+str(self.fields["Tag3ASNIdLen"])
 
-                if len(tag2length) > 255:
-		   self.fields["Tag2ASNIdLen"] = struct.pack(">H", len(tag2length))
-                else:
-                   self.fields["Tag2ASNIdLenOfLen"] = "\x81"
-		   self.fields["Tag2ASNIdLen"] = struct.pack(">B", len(tag2length))
+		if len(tag2length) > 255:
+			self.fields["Tag2ASNIdLen"] = StructWithLenPython2or3(">H", len(tag2length))
+		else:
+			self.fields["Tag2ASNIdLenOfLen"] = "\x81"
+			self.fields["Tag2ASNIdLen"] = StructWithLenPython2or3(">B", len(tag2length))
 
-		self.fields["Tag1ASNIdLen"] = struct.pack(">B", len(str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])))
-		self.fields["Tag1ASNId2Len"] = struct.pack(">B", len(str(self.fields["Tag1ASNId2Str"])))
+		self.fields["Tag1ASNIdLen"] = StructWithLenPython2or3(">B", len(str(self.fields["Tag1ASNId2"])+str(self.fields["Tag1ASNId2Len"])+str(self.fields["Tag1ASNId2Str"])))
+		self.fields["Tag1ASNId2Len"] = StructWithLenPython2or3(">B", len(str(self.fields["Tag1ASNId2Str"])))
 
 		###### Workstation Offset
 		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
@@ -1572,22 +1586,22 @@ class SMB2Session1Data(Packet):
 		CalculateLenAvpairs = str(self.fields["NTLMSSPNTLMChallengeAVPairsId"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsLen"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs2Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs3Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs5Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs7Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs7Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs7UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs6Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs6Len"])
 
 		##### Workstation Offset Calculation:
-		self.fields["NTLMSSPNtWorkstationBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation))
-		self.fields["NTLMSSPNtWorkstationLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtWorkstationMaxLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
 
 		##### Target Offset Calculation:
-		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtTargetInfoLen"] = struct.pack("<h", len(CalculateLenAvpairs))
-		self.fields["NTLMSSPNtTargetInfoMaxLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
 		
 		##### IvPair Calculation:
-		self.fields["NTLMSSPNTLMChallengeAVPairs7Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs7UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs7Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs7UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
 
 class SMB2Session2Data(Packet):
 	fields = OrderedDict([
@@ -1622,7 +1636,7 @@ class SMB2NegoReq(Packet):
     ])
     
     def calculate(self):
-        self.fields["Bcc"] = struct.pack("<H",len(str(self.fields["Data"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
 
 class SMB2NegoDataReq(Packet):
     fields = OrderedDict([
@@ -1643,7 +1657,7 @@ class TPKT(Packet):
     ])    
     
     def calculate(self):
-        self.fields["Length"] = struct.pack(">h",len(str(self.fields["Data"]))+4)#Data+own header.
+        self.fields["Length"] = StructWithLenPython2or3(">h",len(str(self.fields["Data"]))+4)#Data+own header.
 
 class X224(Packet):
     fields = OrderedDict([
@@ -1656,7 +1670,7 @@ class X224(Packet):
     ])
     
     def calculate(self): 
-        self.fields["Length"] = struct.pack(">B",len(str(self.fields["Data"]))+6)
+        self.fields["Length"] = StructWithLenPython2or3(">B",len(str(self.fields["Data"]))+6)
 
 
 class RDPNEGOAnswer(Packet):
@@ -1668,7 +1682,7 @@ class RDPNEGOAnswer(Packet):
     ])
     
     def calculate(self): 
-        self.fields["Length"] = struct.pack("<h",8)
+        self.fields["Length"] = StructWithLenPython2or3("<h",8)
 
 
 class RDPNTLMChallengeAnswer(Packet):
@@ -1738,12 +1752,12 @@ class RDPNTLMChallengeAnswer(Packet):
 	def calculate(self):
 
 		###### Convert strings to Unicode first
-		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le')
-		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le')
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le').decode('latin-1')
 
 		###### Workstation Offset
 		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
@@ -1755,26 +1769,26 @@ class RDPNTLMChallengeAnswer(Packet):
 
 		##### RDP Len Calculation:
 
-		self.fields["SequenceHeaderLen"] = struct.pack(">B", len(NTLMMessageLen))
-		self.fields["ASNLen01"] = struct.pack(">B", len(NTLMMessageLen)+3)
-		self.fields["OpHeadASNIDLen"] = struct.pack(">B", len(NTLMMessageLen)+6)
-		self.fields["MessageIDASNLen2"] = struct.pack(">B", len(NTLMMessageLen)+9)
-		self.fields["ParserHeadASNLen1"] = struct.pack(">B", len(NTLMMessageLen)+12)
-		self.fields["PacketStartASNStr"] = struct.pack(">B", len(NTLMMessageLen)+20)
+		self.fields["SequenceHeaderLen"] = StructWithLenPython2or3(">B", len(NTLMMessageLen))
+		self.fields["ASNLen01"] = StructWithLenPython2or3(">B", len(NTLMMessageLen)+3)
+		self.fields["OpHeadASNIDLen"] = StructWithLenPython2or3(">B", len(NTLMMessageLen)+6)
+		self.fields["MessageIDASNLen2"] = StructWithLenPython2or3(">B", len(NTLMMessageLen)+9)
+		self.fields["ParserHeadASNLen1"] = StructWithLenPython2or3(">B", len(NTLMMessageLen)+12)
+		self.fields["PacketStartASNStr"] = StructWithLenPython2or3(">B", len(NTLMMessageLen)+20)
 
 		##### Workstation Offset Calculation:
-		self.fields["NTLMSSPNtWorkstationBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation))
-		self.fields["NTLMSSPNtWorkstationLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtWorkstationMaxLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
 		##### IvPairs Offset Calculation:
-		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = struct.pack("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
-		self.fields["NTLMSSPNtTargetInfoLen"] = struct.pack("<h", len(CalculateLenAvpairs))
-		self.fields["NTLMSSPNtTargetInfoMaxLen"] = struct.pack("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
 		##### IvPair Calculation:
-		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
-		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = struct.pack("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
 
 

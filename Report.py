@@ -39,7 +39,7 @@ def GetResponderData(cursor):
 def GetResponderUsernamesStatistic(cursor):
      res = cursor.execute("SELECT COUNT(DISTINCT UPPER(user)) FROM Responder")
      for row in res.fetchall():
-         print color('[+] In total {0} unique user accounts were captured.'.format(row[0]), code = 2, modifier = 1)
+         print(color('[+] In total {0} unique user accounts were captured.'.format(row[0]), code = 2, modifier = 1))
 
 def GetResponderUsernames(cursor):
      res = cursor.execute("SELECT DISTINCT user FROM Responder")
@@ -66,7 +66,7 @@ def GetUniqueLookups(cursor):
 def GetStatisticUniqueLookups(cursor):
      res = cursor.execute("SELECT COUNT(*) FROM Poisoned WHERE ForName in (SELECT DISTINCT UPPER(ForName) FROM Poisoned)")
      for row in res.fetchall():
-         print color('[+] In total {0} unique queries were poisoned.'.format(row[0]), code = 2, modifier = 1)
+         print(color('[+] In total {0} unique queries were poisoned.'.format(row[0]), code = 2, modifier = 1))
 
 
 def SavePoisonersToDb(result):
@@ -82,13 +82,13 @@ def SaveToDb(result):
 			result[k] = ''
 
 cursor = DbConnect()
-print color("[+] Generating report...", code = 3, modifier = 1)
-print color("[+] Unique lookups ordered by IP:", code = 2, modifier = 1)
+print(color("[+] Generating report...", code = 3, modifier = 1))
+print(color("[+] Unique lookups ordered by IP:", code = 2, modifier = 1))
 GetUniqueLookups(cursor)
 GetStatisticUniqueLookups(cursor)
-print color("\n[+] Extracting captured usernames:", code = 2, modifier = 1)
+print(color("\n[+] Extracting captured usernames:", code = 2, modifier = 1))
 GetResponderUsernames(cursor)
-print color("\n[+] Username details:", code = 2, modifier = 1)
+print(color("\n[+] Username details:", code = 2, modifier = 1))
 GetResponderUsernamesWithDetails(cursor)
 GetResponderUsernamesStatistic(cursor)
 #print color("\n[+] Captured hashes:", code = 2, modifier = 1)

@@ -14,13 +14,18 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import urlparse
+from utils import *
+if settings.Config.PY2OR3 is "PY3":
+	import urllib.parse as urlparse
+	import http.server as BaseHTTPServer
+else:
+	import urlparse
+	import BaseHTTPServer
+
 import select
 import zlib
-import BaseHTTPServer
-
 from servers.HTTP import RespondWithFile
-from utils import *
+
 
 IgnoredDomains = [ 'crl.comodoca.com', 'crl.usertrust.com', 'ocsp.comodoca.com', 'ocsp.usertrust.com', 'www.download.windowsupdate.com', 'crl.microsoft.com' ]
 
@@ -34,9 +39,9 @@ def InjectData(data, client, req_uri):
 	if settings.Config.Serve_Exe == True and req_uri.endswith('.exe'):
 		return RespondWithFile(client, settings.Config.Exe_Filename, os.path.basename(req_uri))
 
-	if len(data.split('\r\n\r\n')) > 1:
+	if len(data.split(b'\r\n\r\n')) > 1:
 		try:
-			Headers, Content = data.split('\r\n\r\n')
+			Headers, Content = data.split(b'\r\n\r\n')
 		except:
 			return data
 
@@ -44,30 +49,34 @@ def InjectData(data, client, req_uri):
 		if set(RedirectCodes) & set(Headers):
 			return data
 
-		if "content-encoding: gzip" in Headers.lower():
+		Len = b''.join(re.findall(b'(?<=Content-Length: )[^\r\n]*', Headers))
+
+		if b'content-encoding: gzip' in Headers.lower():
 			Content = zlib.decompress(Content, 16+zlib.MAX_WBITS)
 
-		if "content-type: text/html" in Headers.lower():
+		if b'content-type: text/html' in Headers.lower():
 			if settings.Config.Serve_Html:  # Serve the custom HTML if needed
 				return RespondWithFile(client, settings.Config.Html_Filename)
 
-			Len = ''.join(re.findall(r'(?<=Content-Length: )[^\r\n]*', Headers))
-			HasBody = re.findall(r'(<body[^>]*>)', Content, re.IGNORECASE)
+
+			HasBody = re.findall(b'(<body[^>]*>)', Content, re.IGNORECASE)
 
 			if HasBody and len(settings.Config.HtmlToInject) > 2 and not req_uri.endswith('.js'):
 				if settings.Config.Verbose:
-					print text("[PROXY] Injecting into HTTP Response: %s" % color(settings.Config.HtmlToInject, 3, 1))
+					print(text("[PROXY] Injecting into HTTP Response: %s" % color(settings.Config.HtmlToInject, 3, 1)))
 
-				Content = Content.replace(HasBody[0], '%s\n%s' % (HasBody[0], settings.Config.HtmlToInject))
+				Content = Content.replace(HasBody[0], b'%s\n%s' % (HasBody[0], settings.Config.HtmlToInject.encode('latin-1')))
 
-		if "content-encoding: gzip" in Headers.lower():
+		if b'content-encoding: gzip' in Headers.lower():
 			Content = zlib.compress(Content)
 
-		Headers = Headers.replace("Content-Length: "+Len, "Content-Length: "+ str(len(Content)))
-		data = Headers +'\r\n\r\n'+ Content
+		Headers = Headers.replace(b'Content-Length: '+Len, b'Content-Length: '+ NetworkSendBufferPython2or3(len(Content)))
+		data = Headers +b'\r\n\r\n'+ Content
+
 	else:
 		if settings.Config.Verbose:
-			print text("[PROXY] Returning unmodified HTTP response")
+			print(text("[PROXY] Returning unmodified HTTP response"))
+
 	return data
 
 class ProxySock:
@@ -99,14 +108,14 @@ class ProxySock:
 				# Replace the socket by a connection to the proxy
 				self.socket = socket.socket(family, socktype, proto)
 				self.socket.connect(sockaddr)
-			except socket.error, msg:
+			except socket.error as msg:
 				if self.socket:
 					self.socket.close()
 				self.socket = None
 				continue
 			break
 		if not self.socket :
-			raise socket.error, msg
+			raise socket.error(msg)
 		
 		# Ask him to create a tunnel connection to the target host/port
 		self.socket.send(
@@ -121,7 +130,7 @@ class ProxySock:
 		
 		# Not 200 ?
 		if parts[1] != "200":
-			print color("[!] Error response from upstream proxy: %s" % resp, 1)
+			print(color("[!] Error response from upstream proxy: %s" % resp, 1))
 			pass
 
 	# Wrap all methods of inner socket, without any change
@@ -200,7 +209,7 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 	def handle(self):
 		(ip, port) =  self.client_address
 		if settings.Config.Verbose:
-			print text("[PROXY] Received connection from %s" % self.client_address[0])
+			print(text("[PROXY] Received connection from %s" % self.client_address[0]))
 		self.__base_handle()
 
 	def _connect_to(self, netloc, soc):
@@ -210,7 +219,7 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 		else:
 			host_port = netloc, 80
 		try: soc.connect(host_port)
-		except socket.error, arg:
+		except socket.error as arg:
 			try: msg = arg[1]
 			except: msg = arg
 			self.send_error(404, msg)
@@ -271,14 +280,14 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 			URL_Unparse = urlparse.urlunparse(('', '', path, params, query, ''))
 
 			if self._connect_to(netloc, soc):
-				soc.send("%s %s %s\r\n" % (self.command, URL_Unparse, self.request_version))
+				soc.send(NetworkSendBufferPython2or3("%s %s %s\r\n" % (self.command, URL_Unparse, self.request_version)))
 
 				Cookie = self.headers['Cookie'] if "Cookie" in self.headers else ''
 
 				if settings.Config.Verbose:
-					print text("[PROXY] Client        : %s" % color(self.client_address[0], 3))
-					print text("[PROXY] Requested URL : %s" % color(self.path, 3))
-					print text("[PROXY] Cookie        : %s" % Cookie)
+					print(text("[PROXY] Client        : %s" % color(self.client_address[0], 3)))
+					print(text("[PROXY] Requested URL : %s" % color(self.path, 3)))
+					print(text("[PROXY] Cookie        : %s" % Cookie))
 
 				self.headers['Connection'] = 'close'
 				del self.headers['Proxy-Connection']
@@ -286,8 +295,8 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 				del self.headers['Range']
 				
 				for k, v in self.headers.items():
-					soc.send("%s: %s\r\n" % (k.title(), v))
-				soc.send("\r\n")
+					soc.send(NetworkSendBufferPython2or3("%s: %s\r\n" % (k.title(), v)))
+				soc.send(NetworkSendBufferPython2or3("\r\n"))
 
 				try:
 					self._read_write(soc, netloc)
@@ -325,13 +334,14 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 						try:
 							data = i.recv(4096)
 
-							if self.command == "POST" and settings.Config.Verbose:
-								print text("[PROXY] POST Data     : %s" % data)
+							if self.command == b'POST' and settings.Config.Verbose:
+								print(text("[PROXY] POST Data     : %s" % data))
 						except:
 							pass
 					if data:
 						try:
 							out.send(data)
+
 							count = 0
 						except:
 							pass
