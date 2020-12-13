@@ -260,69 +260,69 @@ def main():
 
 		if settings.Config.HTTP_On_Off:
 			from servers.HTTP import HTTP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 80, HTTP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 80, HTTP,)))
 
 		if settings.Config.SSL_On_Off:
 			from servers.HTTP import HTTP
-			threads.append(Thread(target=serve_thread_SSL, args=('', 443, HTTP,)))
+			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 443, HTTP,)))
 
 		if settings.Config.RDP_On_Off:
 			from servers.RDP import RDP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 3389, RDP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3389, RDP,)))
 
 		if settings.Config.WPAD_On_Off:
 			from servers.HTTP_Proxy import HTTP_Proxy
-			threads.append(Thread(target=serve_thread_tcp, args=('', 3141, HTTP_Proxy,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3141, HTTP_Proxy,)))
 
 		if settings.Config.ProxyAuth_On_Off:
 		        from servers.Proxy_Auth import Proxy_Auth
-		        threads.append(Thread(target=serve_thread_tcp_auth, args=('', 3128, Proxy_Auth,)))
+		        threads.append(Thread(target=serve_thread_tcp_auth, args=(settings.Config.Bind_To, 3128, Proxy_Auth,)))
 
 		if settings.Config.SMB_On_Off:
 			if settings.Config.LM_On_Off:
 				from servers.SMB import SMB1LM
-				threads.append(Thread(target=serve_thread_tcp, args=('', 445, SMB1LM,)))
-				threads.append(Thread(target=serve_thread_tcp, args=('', 139, SMB1LM,)))
+				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 445, SMB1LM,)))
+				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 139, SMB1LM,)))
 			else:
 				from servers.SMB import SMB1
-				threads.append(Thread(target=serve_thread_tcp, args=('', 445, SMB1,)))
-				threads.append(Thread(target=serve_thread_tcp, args=('', 139, SMB1,)))
+				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 445, SMB1,)))
+				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 139, SMB1,)))
 
 		if settings.Config.Krb_On_Off:
 			from servers.Kerberos import KerbTCP, KerbUDP
 			threads.append(Thread(target=serve_thread_udp, args=('', 88, KerbUDP,)))
-			threads.append(Thread(target=serve_thread_tcp, args=('', 88, KerbTCP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 88, KerbTCP,)))
 
 		if settings.Config.SQL_On_Off:
 			from servers.MSSQL import MSSQL, MSSQLBrowser
-			threads.append(Thread(target=serve_thread_tcp, args=('', 1433, MSSQL,)))
-			threads.append(Thread(target=serve_thread_udp_broadcast, args=('', 1434, MSSQLBrowser,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 1433, MSSQL,)))
+			threads.append(Thread(target=serve_thread_udp_broadcast, args=(settings.Config.Bind_To, 1434, MSSQLBrowser,)))
 
 		if settings.Config.FTP_On_Off:
 			from servers.FTP import FTP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 21, FTP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 21, FTP,)))
 
 		if settings.Config.POP_On_Off:
 			from servers.POP3 import POP3
-			threads.append(Thread(target=serve_thread_tcp, args=('', 110, POP3,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 110, POP3,)))
 
 		if settings.Config.LDAP_On_Off:
 			from servers.LDAP import LDAP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 389, LDAP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 389, LDAP,)))
 
 		if settings.Config.SMTP_On_Off:
 			from servers.SMTP import ESMTP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 25,  ESMTP,)))
-			threads.append(Thread(target=serve_thread_tcp, args=('', 587, ESMTP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 25,  ESMTP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 587, ESMTP,)))
 
 		if settings.Config.IMAP_On_Off:
 			from servers.IMAP import IMAP
-			threads.append(Thread(target=serve_thread_tcp, args=('', 143, IMAP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 143, IMAP,)))
 
 		if settings.Config.DNS_On_Off:
 			from servers.DNS import DNS, DNSTCP
 			threads.append(Thread(target=serve_thread_udp, args=('', 53, DNS,)))
-			threads.append(Thread(target=serve_thread_tcp, args=('', 53, DNSTCP,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 53, DNSTCP,)))
 
 		for thread in threads:
 			thread.setDaemon(True)

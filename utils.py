@@ -26,7 +26,7 @@ import codecs
 import struct
 
 def RandomChallenge():
-	if settings.Config.PY2OR3 is "PY3":
+	if settings.Config.PY2OR3 == "PY3":
 		if settings.Config.NumChal == "random":
 			from random import getrandbits
 			NumChal = b'%016x' % getrandbits(16 * 4)
@@ -107,7 +107,7 @@ def RespondToThisHost(ClientIp, Name):
 	return RespondToThisIP(ClientIp) and RespondToThisName(Name)
 
 def RespondWithIPAton():
-	if settings.Config.PY2OR3 is "PY2":
+	if settings.Config.PY2OR3 == "PY2":
 		if settings.Config.ExternalIP:
 			return settings.Config.ExternalIPAton
 		else:
@@ -167,7 +167,7 @@ def DumpConfig(outfile, data):
 
 def StructPython2or3(endian,data):
 	#Python2...
-	if settings.Config.PY2OR3 is "PY2":
+	if settings.Config.PY2OR3 == "PY2":
 		return struct.pack(endian, len(data))
 	#Python3...
 	else:
@@ -175,20 +175,20 @@ def StructPython2or3(endian,data):
 
 def StructWithLenPython2or3(endian,data):
 	#Python2...
-	if settings.Config.PY2OR3 is "PY2":
+	if settings.Config.PY2OR3 == "PY2":
 		return struct.pack(endian, data)
 	#Python3...
 	else:
 		return struct.pack(endian, data).decode('latin-1')
 
 def NetworkSendBufferPython2or3(data):
-	if settings.Config.PY2OR3 is "PY2":
+	if settings.Config.PY2OR3 == "PY2":
 		return str(data)
 	else:
 		return bytes(str(data), 'latin-1')
 
 def NetworkRecvBufferPython2or3(data):
-	if settings.Config.PY2OR3 is "PY2":
+	if settings.Config.PY2OR3 == "PY2":
 		return str(data)
 	else:
 		return str(data.decode('latin-1'))

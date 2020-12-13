@@ -58,20 +58,20 @@ else:
 
 def StructWithLenPython2or3(endian,data):
     #Python2...
-    if PY2OR3 is "PY2":
+    if PY2OR3 == "PY2":
         return struct.pack(endian, data)
     #Python3...
     else:
         return struct.pack(endian, data).decode('latin-1')
 
 def NetworkSendBufferPython2or3(data):
-    if PY2OR3 is "PY2":
+    if PY2OR3 == "PY2":
         return str(data)
     else:
         return bytes(str(data), 'latin-1')
 
 def NetworkRecvBufferPython2or3(data):
-    if PY2OR3 is "PY2":
+    if PY2OR3 == "PY2":
         return str(data)
     else:
         return str(data.decode('latin-1'))

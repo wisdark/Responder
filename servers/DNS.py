@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from utils import *
 from packets import DNS_Ans
-if settings.Config.PY2OR3 is "PY3":
+if settings.Config.PY2OR3 == "PY3":
 	from socketserver import BaseRequestHandler
 else:
 	from SocketServer import BaseRequestHandler

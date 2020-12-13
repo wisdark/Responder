@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from utils import *
-if settings.Config.PY2OR3 is "PY3":
+if settings.Config.PY2OR3 == "PY3":
 	from socketserver import BaseRequestHandler, StreamRequestHandler
 else:
 	from SocketServer import BaseRequestHandler, StreamRequestHandler

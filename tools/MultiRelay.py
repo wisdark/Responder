@@ -412,12 +412,12 @@ class SMBRelay(BaseRequestHandler):
                 data = self.request.recv(4096)
 
             ## Make sure it's not a Kerberos auth.
-            if data.find("NTLM") is not -1:
+            if data.find("NTLM") != -1:
                ## Start with nego protocol + session setup negotiate to our target.
                data, smbdata, s, challenge = GrabNegotiateFromTarget(data, s, Pivoting)
 
             ## Make sure it's not a Kerberos auth.
-            if data.find("NTLM") is not -1:
+            if data.find("NTLM") != -1:
                 ##Relay all that to our client.
                 if data[8:10] == "\x73\x00":
                    head = SMBHeader(cmd="\x73",flag1="\x98", flag2="\x43\xc8", errorcode="\x16\x00\x00\xc0", pid=pidcalc(data),mid=midcalc(data))

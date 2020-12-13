@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.0.0.0'
+__version__ = 'Responder 3.0.2.0'
 
 class Settings:
 	
@@ -206,7 +206,7 @@ class Settings:
 		if self.NumChal.lower() == 'random':
 			self.NumChal = "random"
 
-		if len(self.NumChal) is not 16 and not "random":
+		if len(self.NumChal) != 16 and self.NumChal != "random":
 			print(utils.color("[!] The challenge must be exactly 16 chars long.\nExample: 1122334455667788", 1))
 			sys.exit(-1)
 

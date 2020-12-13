@@ -11,7 +11,7 @@ else:
 
 def StructWithLenPython2or3(endian,data):
     #Python2...
-    if PY2OR3 is "PY2":
+    if PY2OR3 == "PY2":
         return struct.pack(endian, data)
     #Python3...
     else:

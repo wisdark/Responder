@@ -8,7 +8,7 @@ Author: Laurent Gaffie <laurent.gaffie@gmail.com >  https://g-laurent.blogspot.c
 
 ## Intro ##
 
-Responder an LLMNR, NBT-NS and MDNS poisoner. It will answer to *specific* NBT-NS (NetBIOS Name Service) queries based on their name suffix (see: http://support.microsoft.com/kb/163409). By default, the tool will only answer to File Server Service request, which is for SMB.
+Responder is an LLMNR, NBT-NS and MDNS poisoner. It will answer to *specific* NBT-NS (NetBIOS Name Service) queries based on their name suffix (see: http://support.microsoft.com/kb/163409). By default, the tool will only answer to File Server Service request, which is for SMB.
 
 The concept behind this is to target our answers, and be stealthier on the network. This also helps to ensure that we don't break legitimate NBT-NS behavior. You can set the -r option via command line if you want to answer to the Workstation Service request name suffix.
 
@@ -78,7 +78,7 @@ This module allows you to see NBT-NS, BROWSER, LLMNR, DNS requests on the networ
 
 ## Hashes ##
 
-All hashes are printed to stdout and dumped in an unique file John Jumbo compliant, using this format:
+All hashes are printed to stdout and dumped in a unique John Jumbo compliant file, using this format:
 
     (MODULE_NAME)-(HASH_TYPE)-(CLIENT_IP).txt
 

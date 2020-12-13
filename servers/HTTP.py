@@ -17,7 +17,7 @@
 import struct
 import codecs
 from utils import *
-if settings.Config.PY2OR3 is "PY3":
+if settings.Config.PY2OR3 == "PY3":
 	from socketserver import BaseRequestHandler, StreamRequestHandler
 else:
 	from SocketServer import BaseRequestHandler, StreamRequestHandler
@@ -148,10 +148,9 @@ def ServeOPTIONS(data):
 
 def ServeFile(Filename):
 	with open (Filename, "rb") as bk:
-		return bk.read()
+		return NetworkRecvBufferPython2or3(bk.read())
 
 def RespondWithFile(client, filename, dlname=None):
-	
 	if filename.endswith('.exe'):
 		Buffer = ServeExeFile(Payload = ServeFile(filename), ContentDiFile=dlname)
 	else:
