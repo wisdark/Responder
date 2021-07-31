@@ -24,6 +24,7 @@ import settings
 import datetime
 import codecs
 import struct
+from calendar import timegm
 
 def RandomChallenge():
 	if settings.Config.PY2OR3 == "PY3":
@@ -50,6 +51,15 @@ def RandomChallenge():
 def HTTPCurrentDate():
 	Date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 	return Date
+
+def SMBTime():
+    dt = datetime.datetime.now()
+    dt = dt.replace(tzinfo=None)
+    if settings.Config.PY2OR3 == "PY3":
+       return struct.pack("<Q",116444736000000000 + (timegm(dt.timetuple()) * 10000000)).decode('latin-1')
+    else:
+       return struct.pack("<Q",116444736000000000 + (timegm(dt.timetuple()) * 10000000))
+
 try:
 	import sqlite3
 except:
@@ -376,6 +386,8 @@ def StartupMessage():
 	print('    %-27s' % "DNS server" + (enabled if settings.Config.DNS_On_Off else disabled))
 	print('    %-27s' % "LDAP server" + (enabled if settings.Config.LDAP_On_Off else disabled))
 	print('    %-27s' % "RDP server" + (enabled if settings.Config.RDP_On_Off else disabled))
+	print('    %-27s' % "DCE-RPC server" + (enabled if settings.Config.RDP_On_Off else disabled))
+	print('    %-27s' % "WinRM server" + (enabled if settings.Config.WinRM_On_Off else disabled))
 	print('')
 
 	print(color("[+] ", 2, 1) + "HTTP Options:")
@@ -391,6 +403,7 @@ def StartupMessage():
 	print('    %-27s' % "Force WPAD auth" + (enabled if settings.Config.Force_WPAD_Auth else disabled))
 	print('    %-27s' % "Force Basic Auth" + (enabled if settings.Config.Basic else disabled))
 	print('    %-27s' % "Force LM downgrade" + (enabled if settings.Config.LM_On_Off == True else disabled))
+	print('    %-27s' % "Force ESS downgrade" + (enabled if settings.Config.NOESS_On_Off == True or settings.Config.LM_On_Off == True else disabled))
 	print('    %-27s' % "Fingerprint hosts" + (enabled if settings.Config.Finger_On_Off == True else disabled))
 	print('')
 
@@ -410,5 +423,9 @@ def StartupMessage():
 		print('    %-27s' % "Don't Respond To" + color(str(settings.Config.DontRespondTo), 5, 1))
 	if len(settings.Config.DontRespondToName):
 		print('    %-27s' % "Don't Respond To Names" + color(str(settings.Config.DontRespondToName), 5, 1))
-	print('\n\n')
+	print('')
 
+	print(color("[+] ", 2, 1) + "Current Session Variables:")
+	print('    %-27s' % "Responder Machine Name" + color('[%s]' % settings.Config.MachineName, 5, 1))
+	print('    %-27s' % "Responder Domain Name" + color('[%s]' % settings.Config.DomainName, 5, 1))
+	print('    %-27s' % "Responder DCE-RPC Port " + color('[%s]' % settings.Config.RPCPort, 5, 1))

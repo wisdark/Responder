@@ -18,10 +18,12 @@
 import struct
 import settings
 import codecs
-
+import random
+import re
+from os import urandom
 from base64 import b64decode, b64encode
 from odict import OrderedDict
-from utils import HTTPCurrentDate, RespondWithIPAton, StructPython2or3, NetworkRecvBufferPython2or3, StructWithLenPython2or3
+from utils import HTTPCurrentDate, SMBTime, RespondWithIPAton, StructPython2or3, NetworkRecvBufferPython2or3, StructWithLenPython2or3
 
 # Packet class handling all packet generation (see odict.py).
 class Packet():
@@ -65,7 +67,7 @@ class NBT_Ans(Packet):
 class DNS_Ans(Packet):
 	fields = OrderedDict([
 		("Tid",              ""),
-		("Flags",            "\x80\x10"),
+		("Flags",            "\x85\x10"),
 		("Question",         "\x00\x01"),
 		("AnswerRRS",        "\x00\x01"),
 		("AuthorityRRS",     "\x00\x00"),
@@ -87,6 +89,67 @@ class DNS_Ans(Packet):
 		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
 		self.fields["IP"] = RespondWithIPAton()
 		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+
+class DNS_SRV_Ans(Packet):
+	fields = OrderedDict([
+		("Tid",              ""),
+		("Flags",            "\x85\x80"),
+		("Question",         "\x00\x01"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x00"),
+		("QuestionName",     ""),
+		("QuestionNameNull", "\x00"),
+		("Type",             "\x00\x21"),#srv
+		("Class",            "\x00\x01"),
+		("AnswerPointer",    "\xc0\x0c"),
+		("Type1",            "\x00\x21"),#srv
+		("Class1",           "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x1e"), #30 secs, don't mess with their cache for too long..
+		("RecordLen",        ""),
+		("Priority",         "\x00\x00"),
+		("Weight",           "\x00\x64"),
+		("Port",             "\x00\x00"),
+		("TargetLenPre",     "\x0f"), # static, we provide netbios computer name 15 chars like Windows by default.
+		("TargetPrefix",     ""),
+		("TargetLenSuff",    ""),
+		("TargetSuffix",     ""),
+		("TargetLenSuff2",   ""),
+		("TargetSuffix2",    ""),
+		("TargetNull",       "\x00"),
+	])
+
+	def calculate(self,data):
+		self.fields["Tid"] = data[0:2]
+		DNSName = ''.join(data[12:].split('\x00')[:1])
+		SplitFQDN =  re.split('\W+', DNSName) # split the ldap.tcp.blah.blah.blah.domain.tld
+
+		#What's the question? we need it first to calc all other len.
+		self.fields["QuestionName"] = DNSName
+
+		#Want to be detected that easily by xyz sensor?
+		self.fields["TargetPrefix"] = settings.Config.MachineName
+
+		#two last parts of the domain are the actual Domain name.. eg: contoso.com
+		self.fields["TargetSuffix"] = SplitFQDN[-2]
+		self.fields["TargetSuffix2"] = SplitFQDN[-1]
+		#We calculate the len for that domain...
+		self.fields["TargetLenSuff2"] = StructPython2or3(">B",self.fields["TargetSuffix2"])
+		self.fields["TargetLenSuff"] = StructPython2or3(">B",self.fields["TargetSuffix"])
+
+		# Calculate Record len.
+		CalcLen = self.fields["Priority"]+self.fields["Weight"]+self.fields["Port"]+self.fields["TargetLenPre"]+self.fields["TargetPrefix"]+self.fields["TargetLenSuff"]+self.fields["TargetSuffix"]+self.fields["TargetLenSuff2"]+self.fields["TargetSuffix2"]+self.fields["TargetNull"]
+
+		#Our answer len..
+		self.fields["RecordLen"] = StructPython2or3(">h",CalcLen)
+
+		#for now we support ldap and kerberos...
+		if "ldap" in DNSName:
+			self.fields["Port"] = StructWithLenPython2or3(">h", 389)
+
+		if "kerberos" in DNSName:
+			self.fields["Port"] = StructWithLenPython2or3(">h", 88)
+
 
 # LLMNR Answer Packet
 class LLMNR_Ans(Packet):
@@ -155,22 +218,22 @@ class NTLM_Challenge(Packet):
 		("TargetInfoMaxLen", "\x7e\x00"),
 		("TargetInfoOffset", "\x3e\x00\x00\x00"),
 		("NTLMOsVersion",    "\x05\x02\xce\x0e\x00\x00\x00\x0f"),
-		("TargetNameStr",    "SMB"),
+		("TargetNameStr",    settings.Config.Domain),
 		("Av1",              "\x02\x00"),#nbt name
 		("Av1Len",           "\x06\x00"),
-		("Av1Str",           "SMB"),
+		("Av1Str",           settings.Config.Domain),
 		("Av2",              "\x01\x00"),#Server name
 		("Av2Len",           "\x14\x00"),
-		("Av2Str",           "SMB-TOOLKIT"),
+		("Av2Str",           settings.Config.MachineName),
 		("Av3",              "\x04\x00"),#Full Domain name
 		("Av3Len",           "\x12\x00"),
-		("Av3Str",           "smb.local"),
+		("Av3Str",           settings.Config.DomainName),
 		("Av4",              "\x03\x00"),#Full machine domain name
 		("Av4Len",           "\x28\x00"),
-		("Av4Str",           "server2003.smb.local"),
+		("Av4Str",           settings.Config.MachineName+'.'+settings.Config.DomainName),
 		("Av5",              "\x05\x00"),#Domain Forest Name
 		("Av5Len",           "\x12\x00"),
-		("Av5Str",           "smb.local"),
+		("Av5Str",           settings.Config.DomainName),
 		("Av6",              "\x00\x00"),#AvPairs Terminator
 		("Av6Len",           "\x00\x00"),
 	])
@@ -247,6 +310,21 @@ class IIS_NTLM_Challenge_Ans(Packet):
 		("WWWAuth",       "WWW-Authenticate: NTLM "),
 		("Payload",       ""),
 		("Payload-CRLF",  "\r\n"),
+		("Len",           "Content-Length: 0\r\n"),
+		("CRLF",          "\r\n"),
+	])
+
+	def calculate(self,payload):
+		self.fields["Payload"] = b64encode(payload)
+
+class WinRM_NTLM_Challenge_Ans(Packet):
+	fields = OrderedDict([
+		("Code",          "HTTP/1.1 401 \r\n"),
+		("WWWAuth",       "WWW-Authenticate: Negotiate "),
+		("Payload",       ""),
+		("Payload-CRLF",  "\r\n"),
+		("ServerType",    "Server: Microsoft-HTTPAPI/2.0\r\n"),
+		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
 		("Len",           "Content-Length: 0\r\n"),
 		("CRLF",          "\r\n"),
 	])
@@ -463,22 +541,22 @@ class MSSQLNTLMChallengeAnswer(Packet):
 		("TargetInfoMaxLen", "\x7e\x00"),
 		("TargetInfoOffset", "\x3e\x00\x00\x00"),
 		("NTLMOsVersion",    "\x05\x02\xce\x0e\x00\x00\x00\x0f"),
-		("TargetNameStr",    "SMB"),
+		("TargetNameStr",    settings.Config.Domain),
 		("Av1",              "\x02\x00"),#nbt name
 		("Av1Len",           "\x06\x00"),
-		("Av1Str",           "SMB"),
+		("Av1Str",           settings.Config.Domain),
 		("Av2",              "\x01\x00"),#Server name
 		("Av2Len",           "\x14\x00"),
-		("Av2Str",           "SMB-TOOLKIT"),
+		("Av2Str",           settings.Config.MachineName),
 		("Av3",              "\x04\x00"),#Full Domain name
 		("Av3Len",           "\x12\x00"),
-		("Av3Str",           "smb.local"),
+		("Av3Str",           settings.Config.DomainName),
 		("Av4",              "\x03\x00"),#Full machine domain name
 		("Av4Len",           "\x28\x00"),
-		("Av4Str",           "server2003.smb.local"),
+		("Av4Str",           settings.Config.MachineName+'.'+settings.Config.DomainName),
 		("Av5",              "\x05\x00"),#Domain Forest Name
 		("Av5Len",           "\x12\x00"),
-		("Av5Str",           "smb.local"),
+		("Av5Str",           settings.Config.DomainName),
 		("Av6",              "\x00\x00"),#AvPairs Terminator
 		("Av6Len",           "\x00\x00"),
 	])
@@ -521,7 +599,7 @@ class SMTPGreeting(Packet):
 	fields = OrderedDict([
 		("Code",       "220"),
 		("Separator",  "\x20"),
-		("Message",    "smtp01.local ESMTP"),
+		("Message",    settings.Config.DomainName+" ESMTP"),
 		("CRLF",       "\x0d\x0a"),
 	])
 
@@ -529,7 +607,7 @@ class SMTPAUTH(Packet):
 	fields = OrderedDict([
 		("Code0",      "250"),
 		("Separator0", "\x2d"),
-		("Message0",   "smtp01.local"),
+		("Message0",   settings.Config.DomainName),
 		("CRLF0",      "\x0d\x0a"),
 		("Code",       "250"),
 		("Separator",  "\x20"),
@@ -713,7 +791,7 @@ class LDAPNTLMChallenge(Packet):
 		("NTLMSSPNtWorkstationLen",                   "\x1e\x00"),
 		("NTLMSSPNtWorkstationMaxLen",                "\x1e\x00"),
 		("NTLMSSPNtWorkstationBuffOffset",            "\x38\x00\x00\x00"),
-		("NTLMSSPNtNegotiateFlags",                   "\x15\x82\x89\xe2"),
+		("NTLMSSPNtNegotiateFlags",                   "\x15\x82\x81\xe2" if settings.Config.NOESS_On_Off else "\x15\x82\x89\xe2"),
 		("NTLMSSPNtServerChallenge",                  "\x81\x22\x33\x34\x55\x46\xe7\x88"),
 		("NTLMSSPNtReserved",                         "\x00\x00\x00\x00\x00\x00\x00\x00"),
 		("NTLMSSPNtTargetInfoLen",                    "\x94\x00"),
@@ -724,22 +802,22 @@ class LDAPNTLMChallenge(Packet):
 		("NegTokenInitSeqMechMessageVersionBuilt",    "\xce\x0e"),
 		("NegTokenInitSeqMechMessageVersionReserved", "\x00\x00\x00"),
 		("NegTokenInitSeqMechMessageVersionNTLMType", "\x0f"),
-		("NTLMSSPNtWorkstationName",                  "SMB12"),
+		("NTLMSSPNtWorkstationName",                  settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairsId",             "\x02\x00"),
 		("NTLMSSPNTLMChallengeAVPairsLen",            "\x0a\x00"),
-		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     "smb12"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairs1Id",            "\x01\x00"),
 		("NTLMSSPNTLMChallengeAVPairs1Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    "SERVER2008"),
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    settings.Config.MachineName),
 		("NTLMSSPNTLMChallengeAVPairs2Id",            "\x04\x00"),
 		("NTLMSSPNTLMChallengeAVPairs2Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    "smb12.local"),
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    settings.Config.MachineName+'.'+settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs3Id",            "\x03\x00"),
 		("NTLMSSPNTLMChallengeAVPairs3Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    "SERVER2008.smb12.local"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs5Id",            "\x05\x00"),
 		("NTLMSSPNTLMChallengeAVPairs5Len",           "\x04\x00"),
-		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    "smb12.local"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs6Id",            "\x00\x00"),
 		("NTLMSSPNTLMChallengeAVPairs6Len",           "\x00\x00"),
 	])
@@ -747,7 +825,7 @@ class LDAPNTLMChallenge(Packet):
 	def calculate(self):
 
 		###### Convert strings to Unicode first
-		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
@@ -781,6 +859,86 @@ class LDAPNTLMChallenge(Packet):
 		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
 		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
 		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+
+##cldap
+class CLDAPNetlogon(Packet):
+	fields = OrderedDict([
+		("ParserHeadASNID",               "\x30"),
+		("ParserHeadASNLenOfLen",         "\x84"),
+		("ParserHeadASNLen",              "\x00\x00\x00\x9D"),
+		("MessageIDASNID",                "\x02"),
+		("MessageIDASNLen",               "\x02"),
+		("MessageIDASNStr",               "\x00\xc4"),#First MsgID
+		("OpHeadASNID",                   "\x64"),
+		("OpHeadASNIDLenOfLen",           "\x84"),
+		("OpHeadASNIDLen",                "\x00\x00\x00\xc7"),
+		("Status",                        "\x04"),
+		("StatusASNLen",                  "\x00"),
+		("StatusASNStr",                  ""),
+		("SequenceHeader",                "\x30"),
+		("SequenceHeaderLenOfLen",        "\x84"),
+		("SequenceHeaderLen",             "\x00\x00\x00\x8b"), 
+                #Netlogon packet starts here....
+		("PartAttribHead",                "\x30"),
+		("PartAttribHeadLenofLen",        "\x84"),
+		("PartAttribHeadLen",             "\x00\x00\x00\x85"),
+		("NetlogonHead",                  "\x04"),
+		("NetlogonLen",                   "\x08"),
+		("NetlogonStr",                   "Netlogon"),
+		("NetAttribHead",                 "\x31"),
+		("NetAttribLenOfLen",             "\x84"),
+		("NetAttribLen",                  "\x00\x00\x00\x75"),
+		("NetAttrib1Head",                "\x04"),
+		("NetAttrib1Len",                 "\x73"),
+		("NTLogonOpcode",                 "\x17\x00"),#SamLogonRespEx opcode
+		("NTLogonSbz",                    "\x00\x00"),
+		("NTLogonFlags",                  "\xFD\xF3\x03\x00"),
+		("NTLogonDomainGUID",             "\x3E\xDE\x55\x61\xF0\x79\x8F\x44\x83\x10\x83\x63\x08\xD4\xBB\x26"),
+		("NTLogonForestName",             "\x04\x73\x6D\x62\x33\x05\x6C\x6F\x63\x61\x6C"),
+		("NTLogonForestNameNull",         "\x00"),
+		("NTLogonDomainNamePtr",          "\xc0"),
+		("NTLogonDomainNamePtrOffset",    "\x18"),
+		("NTLogonPDCNBTName",             "\x0F\x57\x49\x4E\x2D\x48\x51\x46\x42\x34\x4F\x52\x34\x4B\x49\x4D"),
+		("NTLogonPDCNBTTLDPtr",           "\xC0\x18"),
+		("NTLogonDomainNameShort",        "\x04\x53\x4D\x42\x33"),
+		("NTLogonDomainNameShortNull",    "\x00"),
+		("NTLogonDomainNBTName",          "\x0F\x57\x49\x4E\x2D\x48\x51\x46\x42\x34\x4F\x52\x34\x4B\x49\x4D"),
+		("NTLogonDomainNBTNameNull",      "\x00"),
+		("NTLogonUsername",               "\x00"),		           
+                ("DCSiteName",                    "\x17\x44\x65\x66\x61\x75\x6C\x74\x2D\x46\x69\x72\x73\x74\x2D\x53\x69\x74\x65\x2D\x4E\x61\x6D\x65\x00"),#static 95% PDC use this.
+		("ClientSiteNamePtr",             "\xc0"),
+		("ClientSiteNamePtrOffset",       "\x50"),
+		("NTLogonVersion",                "\x05\x00\x00\x00"),
+		("LMNTToken",                     "\xff\xff"),
+		("LM2Token",                      "\xff\xff"),#End netlogon.
+		("CLDAPMessageIDHeader",          "\x30\x84\x00\x00\x00\x11"),
+		("CLDAPMessageIDInt",             "\x02"),
+		("CLDAPMessageIDlen",             "\x02"),
+		("CLDAPMessageIDStr",             "\x00\xc4"),#Second MsgID
+		("SearchDone",                    "\x65\x84\x00\x00\x00\x07"),
+		("SearchDoneMatched",             "\x0A\x01\x00\x04\x00\x04\x00"),
+	])
+
+	def calculate(self):
+		###### LDAP Packet Len
+		CalculatePacketLen = str(self.fields["MessageIDASNID"])+str(self.fields["MessageIDASNLen"])+str(self.fields["MessageIDASNStr"])+str(self.fields["OpHeadASNID"])+str(self.fields["OpHeadASNIDLenOfLen"])+str(self.fields["OpHeadASNIDLen"])+str(self.fields["Status"])+str(self.fields["StatusASNLen"])+str(self.fields["StatusASNStr"])+str(self.fields["SequenceHeader"])+str(self.fields["SequenceHeaderLen"])+str(self.fields["SequenceHeaderLenOfLen"])
+		OperationPacketLen = str(self.fields["Status"])+str(self.fields["StatusASNLen"])+str(self.fields["StatusASNStr"])+str(self.fields["SequenceHeader"])+str(self.fields["SequenceHeaderLen"])+str(self.fields["SequenceHeaderLenOfLen"])
+
+		###### Netlogon + Search Successfull Len
+		CalculateNetlogonLen = str(self.fields["NTLogonOpcode"])+str(self.fields["NTLogonSbz"])+str(self.fields["NTLogonFlags"])+str(self.fields["NTLogonDomainGUID"])+str(self.fields["NTLogonForestName"])+str(self.fields["NTLogonForestNameNull"])+str(self.fields["NTLogonDomainNamePtr"])+str(self.fields["NTLogonDomainNamePtrOffset"])+str(self.fields["NTLogonPDCNBTName"])+str(self.fields["NTLogonPDCNBTTLDPtr"])+str(self.fields["NTLogonDomainNameShort"])+str(self.fields["NTLogonDomainNameShortNull"])+str(self.fields["NTLogonDomainNBTName"])+str(self.fields["NTLogonDomainNBTNameNull"])+str(self.fields["NTLogonUsername"])+str(self.fields["DCSiteName"])+str(self.fields["ClientSiteNamePtr"])+str(self.fields["ClientSiteNamePtrOffset"])+str(self.fields["NTLogonVersion"])+str(self.fields["LMNTToken"])+str(self.fields["LM2Token"]) #115 now.
+
+
+		CalculateNetlogonOffset = str(self.fields["NTLogonForestName"])+str(self.fields["NTLogonForestNameNull"])+str(self.fields["NTLogonDomainNamePtr"])+str(self.fields["NTLogonDomainNamePtrOffset"])+str(self.fields["NTLogonPDCNBTName"])+str(self.fields["NTLogonPDCNBTTLDPtr"])+str(self.fields["NTLogonDomainNameShort"])+str(self.fields["NTLogonDomainNameShortNull"])+str(self.fields["NTLogonDomainNBTName"])+str(self.fields["NTLogonDomainNBTNameNull"])+str(self.fields["NTLogonUsername"])+str(self.fields["DCSiteName"])
+
+		##### LDAP ASN Len Calculation:
+		self.fields["NetAttrib1Len"] = StructWithLenPython2or3(">B", len(CalculateNetlogonLen))
+		self.fields["NetAttribLen"] = StructWithLenPython2or3(">L", len(CalculateNetlogonLen)+2)
+		self.fields["PartAttribHeadLen"] = StructWithLenPython2or3(">L", len(CalculateNetlogonLen)+18)
+		self.fields["SequenceHeaderLen"] = StructWithLenPython2or3(">L", len(CalculateNetlogonLen)+24)
+		self.fields["OpHeadASNIDLen"] = StructWithLenPython2or3(">L", len(CalculateNetlogonLen)+32)
+		self.fields["ParserHeadASNLen"] = StructWithLenPython2or3(">L", len(CalculateNetlogonLen)+42)
+		###### 
+		self.fields["ClientSiteNamePtrOffset"] = StructWithLenPython2or3(">B", len(CalculateNetlogonOffset)-1)
 
 ##### SMB Packets #####
 class SMBHeader(Packet):
@@ -980,20 +1138,21 @@ class SMBNegoAnsLM(Packet):
 		("Maxrawbuff",   "\x00\x00\x01\x00"),
 		("Sessionkey",   "\x00\x00\x00\x00"),
 		("Capabilities", "\xfc\x3e\x01\x00"),
-		("Systemtime",   "\x84\xd6\xfb\xa3\x01\x35\xcd\x01"),
+		("Systemtime",   SMBTime()),
 		("Srvtimezone",  "\x2c\x01"),
 		("Keylength",    "\x08"),
 		("Bcc",          "\x10\x00"),
 		("Key",          ""),
-		("Domain",       "SMB"),
+		("Domain",       settings.Config.Domain),
 		("DomainNull",   "\x00\x00"),
-		("Server",       "SMB-TOOLKIT"),
+		("Server",       settings.Config.MachineName),
 		("ServerNull",   "\x00\x00"),
 	])
 
+
 	def calculate(self):
-		self.fields["Domain"] = self.fields["Domain"].encode('utf-16le')
-		self.fields["Server"] = self.fields["Server"].encode('utf-16le')
+		self.fields["Domain"] = self.fields["Domain"].encode('utf-16le').decode('latin-1')
+		self.fields["Server"] = self.fields["Server"].encode('utf-16le').decode('latin-1')
 		CompleteBCCLen =  str(self.fields["Key"])+str(self.fields["Domain"])+str(self.fields["DomainNull"])+str(self.fields["Server"])+str(self.fields["ServerNull"])
 		self.fields["Bcc"] = StructWithLenPython2or3("<h",len(CompleteBCCLen))
 		self.fields["Keylength"] = StructWithLenPython2or3("<h",len(self.fields["Key"]))[0]
@@ -1009,11 +1168,11 @@ class SMBNegoAns(Packet):
 		("MaxRawBuff",   "\x00\x00\x01\x00"),
 		("SessionKey",   "\x00\x00\x00\x00"),
 		("Capabilities", "\xfd\xf3\x01\x80"),
-		("SystemTime",   "\x84\xd6\xfb\xa3\x01\x35\xcd\x01"),
+		("SystemTime",   SMBTime()),
 		("SrvTimeZone",  "\xf0\x00"),
 		("KeyLen",    "\x00"),
 		("Bcc",          "\x57\x00"),
-		("Guid",         "\xc8\x27\x3d\xfb\xd4\x18\x55\x4f\xb2\x40\xaf\xd7\x61\x73\x75\x3b"),
+		("Guid",         urandom(16).decode('latin-1')),
 		("InitContextTokenASNId",     "\x60"),
 		("InitContextTokenASNLen",    "\x5b"),
 		("ThisMechASNId",             "\x06"),
@@ -1038,7 +1197,7 @@ class SMBNegoAns(Packet):
 		("NegHintTag0ASNLen",         "\x17"),
 		("NegHintFinalASNId",         "\x1b"),
 		("NegHintFinalASNLen",        "\x15"),
-		("NegHintFinalASNStr",        "server2008$@SMB.LOCAL"),
+		("NegHintFinalASNStr",        settings.Config.MachineNego),
 	])
 
 	def calculate(self):
@@ -1076,7 +1235,7 @@ class SMBNegoKerbAns(Packet):
 		("SrvTimeZone",               "\xf0\x00"),
 		("KeyLen",                    "\x00"),
 		("Bcc",                       "\x57\x00"),
-		("Guid",                      "\xc8\x27\x3d\xfb\xd4\x18\x55\x4f\xb2\x40\xaf\xd7\x61\x73\x75\x3b"),
+		("Guid",                      urandom(16).decode('latin-1')),
 		("InitContextTokenASNId",     "\x60"),
 		("InitContextTokenASNLen",    "\x5b"),
 		("ThisMechASNId",             "\x06"),
@@ -1110,7 +1269,7 @@ class SMBNegoKerbAns(Packet):
 		("NegHintTag0ASNLen",         "\x17"),
 		("NegHintFinalASNId",         "\x1b"),
 		("NegHintFinalASNLen",        "\x15"),
-		("NegHintFinalASNStr",        "server2008$@SMB.LOCAL"),
+		("NegHintFinalASNStr",        settings.Config.MachineNego),
 	])
 
 	def calculate(self):
@@ -1172,7 +1331,7 @@ class SMBSession1Data(Packet):
 		("NTLMSSPNtWorkstationLen","\x1e\x00"),
 		("NTLMSSPNtWorkstationMaxLen","\x1e\x00"),
 		("NTLMSSPNtWorkstationBuffOffset","\x38\x00\x00\x00"),
-		("NTLMSSPNtNegotiateFlags","\x15\x82\x89\xe2"),
+		("NTLMSSPNtNegotiateFlags","\x15\x82\x81\xe2" if settings.Config.NOESS_On_Off else "\x15\x82\x89\xe2"),
 		("NTLMSSPNtServerChallenge","\x81\x22\x33\x34\x55\x46\xe7\x88"),
 		("NTLMSSPNtReserved","\x00\x00\x00\x00\x00\x00\x00\x00"),
 		("NTLMSSPNtTargetInfoLen","\x94\x00"),
@@ -1183,22 +1342,22 @@ class SMBSession1Data(Packet):
 		("NegTokenInitSeqMechMessageVersionBuilt","\xce\x0e"),
 		("NegTokenInitSeqMechMessageVersionReserved","\x00\x00\x00"),
 		("NegTokenInitSeqMechMessageVersionNTLMType","\x0f"),
-		("NTLMSSPNtWorkstationName","SMB12"),
+		("NTLMSSPNtWorkstationName",settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairsId","\x02\x00"),
 		("NTLMSSPNTLMChallengeAVPairsLen","\x0a\x00"),
-		("NTLMSSPNTLMChallengeAVPairsUnicodeStr","SMB12"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairs1Id","\x01\x00"),
 		("NTLMSSPNTLMChallengeAVPairs1Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr","SMB12"),
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",settings.Config.MachineName),
 		("NTLMSSPNTLMChallengeAVPairs2Id","\x04\x00"),
 		("NTLMSSPNTLMChallengeAVPairs2Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr","SMB12"),
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",settings.Config.MachineName+'.'+settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs3Id","\x03\x00"),
 		("NTLMSSPNTLMChallengeAVPairs3Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr","SMB12"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs5Id","\x05\x00"),
 		("NTLMSSPNTLMChallengeAVPairs5Len","\x04\x00"),
-		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr","SMB12"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs6Id","\x00\x00"),
 		("NTLMSSPNTLMChallengeAVPairs6Len","\x00\x00"),
 		("NTLMSSPNTLMPadding",             ""),
@@ -1208,10 +1367,9 @@ class SMBSession1Data(Packet):
 		("NativeLANTerminator","\x00\x00"),
 	])
 
-
 	def calculate(self):
 		###### Convert strings to Unicode
-		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le')
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
 		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
@@ -1377,8 +1535,8 @@ class SMB2NegoAns(Packet):
 		("MaxTransSize",    "\x00\x00\x10\x00"),
 		("MaxReadSize",     "\x00\x00\x10\x00"),
 		("MaxWriteSize",    "\x00\x00\x10\x00"),
-		("SystemTime",      "\x27\xfb\xea\xd7\x50\x09\xd2\x01"),
-		("BootTime",        "\x22\xfb\x80\x01\x40\x09\xd2\x01"),
+		("SystemTime",      SMBTime()),
+		("BootTime",        SMBTime()),
 		("SecBlobOffSet",             "\x80\x00"),
 		("SecBlobLen",                "\x78\x00"),
 		("Reserved2",                 "\x00\x00\x00\x00"),
@@ -1418,7 +1576,7 @@ class SMB2NegoAns(Packet):
 		("NegHintTag0ASNLen",         "\x26"),
 		("NegHintFinalASNId",         "\x1b"), 
 		("NegHintFinalASNLen",        "\x24"),
-		("NegHintFinalASNStr",        "Server2008@SMB3.local"),
+		("NegHintFinalASNStr",        settings.Config.MachineName+'@'+settings.Config.DomainName),
 	])
 
 	def calculate(self):
@@ -1493,7 +1651,7 @@ class SMB2Session1Data(Packet):
 		("NTLMSSPNtWorkstationLen","\x1e\x00"),
 		("NTLMSSPNtWorkstationMaxLen","\x1e\x00"),
 		("NTLMSSPNtWorkstationBuffOffset","\x38\x00\x00\x00"),
-		("NTLMSSPNtNegotiateFlags","\x15\x82\x89\xe2"),
+		("NTLMSSPNtNegotiateFlags","\x15\x82\x81\xe2" if settings.Config.NOESS_On_Off else "\x15\x82\x89\xe2"),
 		("NTLMSSPNtServerChallenge","\x81\x22\x33\x34\x55\x46\xe7\x88"),
 		("NTLMSSPNtReserved","\x00\x00\x00\x00\x00\x00\x00\x00"),
 		("NTLMSSPNtTargetInfoLen","\x94\x00"),
@@ -1504,25 +1662,25 @@ class SMB2Session1Data(Packet):
 		("NegTokenInitSeqMechMessageVersionBuilt","\x80\x25"),
 		("NegTokenInitSeqMechMessageVersionReserved","\x00\x00\x00"),
 		("NegTokenInitSeqMechMessageVersionNTLMType","\x0f"),
-		("NTLMSSPNtWorkstationName","SMB3"),
+		("NTLMSSPNtWorkstationName",settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairsId","\x02\x00"),
 		("NTLMSSPNTLMChallengeAVPairsLen","\x0a\x00"),
-		("NTLMSSPNTLMChallengeAVPairsUnicodeStr","SMB3"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairs1Id","\x01\x00"),
 		("NTLMSSPNTLMChallengeAVPairs1Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr","WIN-PRH492RQAFV"), 
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",settings.Config.MachineName), 
 		("NTLMSSPNTLMChallengeAVPairs2Id","\x04\x00"),
 		("NTLMSSPNTLMChallengeAVPairs2Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr","SMB3.local"), 
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",settings.Config.MachineName+'.'+settings.Config.DomainName), 
 		("NTLMSSPNTLMChallengeAVPairs3Id","\x03\x00"),
 		("NTLMSSPNTLMChallengeAVPairs3Len","\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr","WIN-PRH492RQAFV.SMB3.local"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr", settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs5Id","\x05\x00"),
 		("NTLMSSPNTLMChallengeAVPairs5Len","\x04\x00"),
-		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr","SMB3.local"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs7Id","\x07\x00"),
 		("NTLMSSPNTLMChallengeAVPairs7Len","\x08\x00"),
-		("NTLMSSPNTLMChallengeAVPairs7UnicodeStr","\xc0\x65\x31\x50\xde\x09\xd2\x01"),
+		("NTLMSSPNTLMChallengeAVPairs7UnicodeStr",SMBTime()),
 		("NTLMSSPNTLMChallengeAVPairs6Id","\x00\x00"),
 		("NTLMSSPNTLMChallengeAVPairs6Len","\x00\x00"),
 	])
@@ -1611,42 +1769,6 @@ class SMB2Session2Data(Packet):
     ])
 
 
-######################FindSMBTime.py##########################
-class SMBHeaderReq(Packet):
-    fields = OrderedDict([
-        ("Proto", "\xff\x53\x4d\x42"),
-        ("Cmd", "\x72"),
-        ("Error-Code", "\x00\x00\x00\x00" ),
-        ("Flag1", "\x10"),
-        ("Flag2", "\x00\x00"),
-        ("Pidhigh", "\x00\x00"),
-        ("Signature", "\x00\x00\x00\x00\x00\x00\x00\x00"),
-        ("Reserved", "\x00\x00"),
-        ("TID", "\x00\x00"),
-        ("PID", "\xff\xfe"),
-        ("UID", "\x00\x00"),
-        ("MID", "\x00\x00"),
-    ])
-
-class SMB2NegoReq(Packet):
-    fields = OrderedDict([
-        ("Wordcount", "\x00"),
-        ("Bcc", "\x62\x00"),
-        ("Data", "")
-    ])
-    
-    def calculate(self):
-        self.fields["Bcc"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
-
-class SMB2NegoDataReq(Packet):
-    fields = OrderedDict([
-        ("StrType","\x02" ),
-        ("dialect", "NT LM 0.12\x00"),
-        ("StrType1","\x02"),
-        ("dialect1", "SMB 2.002\x00"),
-        ("StrType2","\x02"),
-        ("dialect2", "SMB 2.???\x00"),
-    ])
 ###################RDP Packets################################
 class TPKT(Packet):
     fields = OrderedDict([
@@ -1698,19 +1820,19 @@ class RDPNTLMChallengeAnswer(Packet):
 		("PacketStartASNTag0CredSSPVersion",          "\x05"),##TSVersion: Since padding oracle, v2,v3,v4 are rejected by win7..
 		("ParserHeadASNID1",                          "\xa1"),
 		("ParserHeadASNLenOfLen1",                    "\x81"),
-		("ParserHeadASNLen1",                         "\xfa"),#... +12
+		("ParserHeadASNLen1",                         "\xfa"),
 		("MessageIDASNID",                            "\x30"),
 		("MessageIDASNLen",                           "\x81"),
-		("MessageIDASNLen2",                          "\xf7"),#... +9
+		("MessageIDASNLen2",                          "\xf7"),
 		("OpHeadASNID",                               "\x30"),
 		("OpHeadASNIDLenOfLen",                       "\x81"),
-		("OpHeadASNIDLen",                            "\xf4"),#... +6
+		("OpHeadASNIDLen",                            "\xf4"),
 		("StatusASNID",                               "\xa0"), 
 		("MatchedDN",                                 "\x81"), 
-		("ASNLen01",                                  "\xf1"),#NTLM len +3
+		("ASNLen01",                                  "\xf1"),
 		("SequenceHeader",                            "\x04"),
 		("SequenceHeaderLenOfLen",                    "\x81"),
-		("SequenceHeaderLen",                         "\xee"), #done
+		("SequenceHeaderLen",                         "\xee"),
 		#######
 		("NTLMSSPSignature",                          "NTLMSSP"),
 		("NTLMSSPSignatureNull",                      "\x00"),
@@ -1729,22 +1851,22 @@ class RDPNTLMChallengeAnswer(Packet):
 		("NegTokenInitSeqMechMessageVersionBuilt",    "\xce\x0e"),
 		("NegTokenInitSeqMechMessageVersionReserved", "\x00\x00\x00"),
 		("NegTokenInitSeqMechMessageVersionNTLMType", "\x0f"),
-		("NTLMSSPNtWorkstationName",                  "RDP12"),
+		("NTLMSSPNtWorkstationName",                  settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairsId",             "\x02\x00"),
 		("NTLMSSPNTLMChallengeAVPairsLen",            "\x0a\x00"),
-		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     settings.Config.Domain),
 		("NTLMSSPNTLMChallengeAVPairs1Id",            "\x01\x00"),
 		("NTLMSSPNTLMChallengeAVPairs1Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    settings.Config.MachineName),
 		("NTLMSSPNTLMChallengeAVPairs2Id",            "\x04\x00"),
 		("NTLMSSPNTLMChallengeAVPairs2Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    settings.Config.MachineName+'.'+settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs3Id",            "\x03\x00"),
 		("NTLMSSPNTLMChallengeAVPairs3Len",           "\x1e\x00"),
-		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    "RPD12"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs5Id",            "\x05\x00"),
 		("NTLMSSPNTLMChallengeAVPairs5Len",           "\x04\x00"),
-		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    "RDP12"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    settings.Config.DomainName),
 		("NTLMSSPNTLMChallengeAVPairs6Id",            "\x00\x00"),
 		("NTLMSSPNTLMChallengeAVPairs6Len",           "\x00\x00"),
 	])
@@ -1791,4 +1913,233 @@ class RDPNTLMChallengeAnswer(Packet):
 		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
 		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
 
+#######################################RPC#################################################
+class RPCMapBindAckAcceptedAns(Packet):
+	fields = OrderedDict([
+		("Version",          "\x05"),
+		("VersionLow",       "\x00"),
+		("PacketType",       "\x0c"),#Bind ack.
+		("PacketFlag",       "\x03"),
+		("DataRepresent",    "\x10\x00\x00\x00"),
+		("FragLen",          "\x2c\x02"),
+		("AuthLen",          "\x00\x00"),
+		("CallID",           "\x02\x00\x00\x00"),
+		("MaxTransFrag",     "\xd0\x16"),
+		("MaxRecvFrag",      "\xd0\x16"),
+		("GroupAssoc",       "\x26\x2a\x00\x00"),
+		("SecondaryAddrLen", "\x04\x00"),
+		("SecondaryAddrstr", "\x31\x33\x35\x00"),
+		("Padding",          "\x00\x00"),
+		("CTXNumber",        "\x03"),
+		("CTXPadding",       "\x00\x00\x00"),
+		("CTX0ContextID",    "\x02\x00"),
+		("CTX0ItemNumber",   "\x02\x00"),
+		("CTX0UID",          "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("CTX0UIDVersion",   "\x00\x00\x00\x00"),
+		("CTX1ContextID",    "\x00\x00"),
+		("CTX1ItemNumber",   "\x00\x00"),
+		("CTX1UID",          "\x33\x05\x71\x71\xba\xbe\x37\x49\x83\x19\xb5\xdb\xef\x9c\xcc\x36"),
+		("CTX1UIDVersion",   "\x00\x00\x00\x00"),
+		("CTX2ContextID",    "\x03\x00"),
+		("CTX2ItemNumber",   "\x03\x00"),
+		("CTX2UID",          "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("CTX2UIDVersion",   "\x00\x00\x00\x00"),
+	])
+
+	def calculate(self):
+
+		Data= str(self.fields["Version"])+str(self.fields["VersionLow"])+str(self.fields["PacketType"])+str(self.fields["PacketFlag"])+str(self.fields["DataRepresent"])+str(self.fields["FragLen"])+str(self.fields["AuthLen"])+str(self.fields["CallID"])+str(self.fields["MaxTransFrag"])+str(self.fields["MaxRecvFrag"])+str(self.fields["GroupAssoc"])+str(self.fields["SecondaryAddrLen"])+str(self.fields["SecondaryAddrstr"])+str(self.fields["Padding"])+str(self.fields["CTXNumber"])+str(self.fields["CTXPadding"])+str(self.fields["CTX0ContextID"])+str(self.fields["CTX0ItemNumber"])+str(self.fields["CTX0UID"])+str(self.fields["CTX0UIDVersion"])+str(self.fields["CTX1ContextID"])+str(self.fields["CTX1ItemNumber"])+str(self.fields["CTX1UID"])+str(self.fields["CTX1UIDVersion"])+str(self.fields["CTX2ContextID"])+str(self.fields["CTX2ItemNumber"])+str(self.fields["CTX2UID"])+str(self.fields["CTX2UIDVersion"])
+
+		self.fields["FragLen"] = StructWithLenPython2or3("<h",len(Data))
+
+class RPCHeader(Packet):
+	fields = OrderedDict([
+		("Version",          "\x05"),
+		("VersionLow",       "\x00"),
+		("PacketType",       "\x02"),#Bind ack.
+		("PacketFlag",       "\x03"),
+		("DataRepresent",    "\x10\x00\x00\x00"),
+		("FragLen",          "\x0c\x01"),
+		("AuthLen",          "\x00\x00"),
+		("CallID",           "\x02\x00\x00\x00"),
+		("AllocHint",        "\xf4\x00\x00\x00"),
+		("ContextID",        "\x01\x00"),
+		("CancelCount",      "\x00"),
+		("Padding",          "\x00"),
+		("Data",             ""),
+		])
+
+	def calculate(self):
+
+		Data= str(self.fields["Version"])+str(self.fields["VersionLow"])+str(self.fields["PacketType"])+str(self.fields["PacketFlag"])+str(self.fields["DataRepresent"])+str(self.fields["FragLen"])+str(self.fields["AuthLen"])+str(self.fields["CallID"])+str(self.fields["AllocHint"])+str(self.fields["ContextID"])+str(self.fields["CancelCount"])+str(self.fields["Padding"])+str(self.fields["Data"])
+
+		self.fields["FragLen"] = StructWithLenPython2or3("<h",len(Data))
+
+
+
+class RPCMapBindMapperAns(Packet):
+	fields = OrderedDict([
+		("ContextType",            "\x00\x00\x00\x00"),
+		("ContextUID",             "\x00"*16),
+		("MaxTowers",              "\x02\x00\x00\x00"),
+		("TowerArrMaxCount",       "\x04\x00\x00\x00\x00\x00\x00\x00"),
+		("TowerArrMaxOff",         "\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("TowerArrActualCount",    "\x02\x00\x00\x00\x00\x00\x00\x00"),
+		("TowerPointer1",          "\x03\x00\x00\x00\x00\x00\x00\x00"),
+		("TowerPointer2",          "\x04\x00\x00\x00\x00\x00\x00\x00"),
+		("TowerTotalLen",          "\x4B\x00\x00\x00\x00\x00\x00\x00"),
+		("Tower1Len",              "\x4B\x00\x00\x00"),	#Repeat x1 from here
+		("Tower1FloorsCount",      "\x05\x00"),
+		("Tower1ByteCount",        "\x13\x00"),
+		("Tower1IntUID",           "\x0D"),
+		("Tower1UID",              "\x35\x42\x51\xE3\x06\x4B\xD1\x11\xAB\x04\x00\xC0\x4F\xC2\xDC\xD2"),
+		("Tower1Version",          "\x04\x00"),
+		("Tower1VersionMinBC",     "\x02\x00"),
+		("Tower1VersionMinimum",   "\x00\x00"),
+		("Tower2ByteCount",        "\x13\x00"),
+		("Tower2IntUID",           "\x0D"),
+		("Tower2UID",              "\x04\x5D\x88\x8A\xEB\x1C\xC9\x11\x9F\xE8\x08\x00\x2B\x10\x48\x60"),
+		("Tower2Version",          "\x02\x00"),
+		("Tower2VersionMinBC",     "\x02\x00"),
+		("Tower2VersionMinimum",   "\x00\x00"),
+		("TowerRpcByteCount",      "\x01\x00"),
+		("TowerRpctIdentifier",    "\x0B"),#RPC v5
+		("TowerRpcByteCount2",     "\x02\x00"),
+		("TowerRpcMinimum",        "\x00\x00"),
+		("TowerPortNumberBC",      "\x01\x00"),
+		("TowerPortNumberOpcode",  "\x07"),#Port is TCP.
+		("TowerPortNumberBC2",     "\x02\x00"),
+		("TowerPortNumberStr",     settings.Config.RPCPort), #Port
+		("TowerIPAddressBC",      "\x01\x00"),
+        	("TowerIPAddressOpcode",  "\x09"),#IPv4 Opcode.
+		("TowerIPAddressBC2",     "\x04\x00"),
+		("TowerIPAddressStr",     ""), #IP Address
+		("TowerIPNull",           "\x00"), 
+		("Data",                  ""),	#To here, exact same packet.
+		("Padding",               "\x00"),
+		("ErrorCode",             "\x00\x00\x00\x00"),# No error.
+
+		])
+
+	def calculate(self):
+		self.fields["TowerPortNumberStr"] = StructWithLenPython2or3(">H", self.fields["TowerPortNumberStr"])
+		self.fields["TowerIPAddressStr"] = RespondWithIPAton()
+
+		Data= str(self.fields["TowerTotalLen"])+str(self.fields["Tower1Len"])+str(self.fields["Tower1FloorsCount"])+str(self.fields["Tower1ByteCount"])+str(self.fields["Tower1IntUID"])+str(self.fields["Tower1UID"])+str(self.fields["Tower1Version"])+str(self.fields["Tower1VersionMinBC"])+str(self.fields["Tower1VersionMinimum"])+str(self.fields["Tower2ByteCount"])+str(self.fields["Tower2IntUID"])+str(self.fields["Tower2UID"])+str(self.fields["Tower2Version"])+str(self.fields["Tower2VersionMinBC"])+str(self.fields["Tower2VersionMinimum"])+str(self.fields["TowerRpcByteCount"])+str(self.fields["TowerRpctIdentifier"])+str(self.fields["TowerRpcByteCount2"])+str(self.fields["TowerRpcMinimum"])+str(self.fields["TowerPortNumberBC"])+str(self.fields["TowerPortNumberOpcode"])+str(self.fields["TowerPortNumberBC2"])+str(self.fields["TowerPortNumberStr"])+str(self.fields["TowerIPAddressBC"])+str(self.fields["TowerIPAddressOpcode"])+str(self.fields["TowerIPAddressBC2"])+str(self.fields["TowerIPAddressStr"])
+
+		self.fields["Data"] = Data
+
+class NTLMChallenge(Packet):
+	fields = OrderedDict([
+		("NTLMSSPSignature",                          "NTLMSSP"),
+		("NTLMSSPSignatureNull",                      "\x00"),
+		("NTLMSSPMessageType",                        "\x02\x00\x00\x00"),
+		("NTLMSSPNtWorkstationLen",                   "\x1e\x00"),
+		("NTLMSSPNtWorkstationMaxLen",                "\x1e\x00"),
+		("NTLMSSPNtWorkstationBuffOffset",            "\x38\x00\x00\x00"),
+		("NTLMSSPNtNegotiateFlags",                   "\x15\x82\x8a\xe2"),
+		("NTLMSSPNtServerChallenge",                  "\x81\x22\x33\x34\x55\x46\xe7\x88"),
+		("NTLMSSPNtReserved",                         "\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("NTLMSSPNtTargetInfoLen",                    "\x94\x00"),
+		("NTLMSSPNtTargetInfoMaxLen",                 "\x94\x00"),
+		("NTLMSSPNtTargetInfoBuffOffset",             "\x56\x00\x00\x00"),
+		("NegTokenInitSeqMechMessageVersionHigh",     "\x05"),
+		("NegTokenInitSeqMechMessageVersionLow",      "\x02"),
+		("NegTokenInitSeqMechMessageVersionBuilt",    "\xce\x0e"),
+		("NegTokenInitSeqMechMessageVersionReserved", "\x00\x00\x00"),
+		("NegTokenInitSeqMechMessageVersionNTLMType", "\x0f"),
+		("NTLMSSPNtWorkstationName",                  settings.Config.Domain),
+		("NTLMSSPNTLMChallengeAVPairsId",             "\x02\x00"),
+		("NTLMSSPNTLMChallengeAVPairsLen",            "\x0a\x00"),
+		("NTLMSSPNTLMChallengeAVPairsUnicodeStr",     settings.Config.Domain),
+		("NTLMSSPNTLMChallengeAVPairs1Id",            "\x01\x00"),
+		("NTLMSSPNTLMChallengeAVPairs1Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs1UnicodeStr",    settings.Config.MachineName),
+		("NTLMSSPNTLMChallengeAVPairs2Id",            "\x04\x00"),
+		("NTLMSSPNTLMChallengeAVPairs2Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs2UnicodeStr",    settings.Config.MachineName+'.'+settings.Config.DomainName),
+		("NTLMSSPNTLMChallengeAVPairs3Id",            "\x03\x00"),
+		("NTLMSSPNTLMChallengeAVPairs3Len",           "\x1e\x00"),
+		("NTLMSSPNTLMChallengeAVPairs3UnicodeStr",    settings.Config.DomainName),
+		("NTLMSSPNTLMChallengeAVPairs5Id",            "\x05\x00"),
+		("NTLMSSPNTLMChallengeAVPairs5Len",           "\x04\x00"),
+		("NTLMSSPNTLMChallengeAVPairs5UnicodeStr",    settings.Config.DomainName),
+		("NTLMSSPNTLMChallengeAVPairs6Id",            "\x00\x00"),
+		("NTLMSSPNTLMChallengeAVPairs6Len",           "\x00\x00"),
+	])
+
+	def calculate(self):
+		###### Convert strings to Unicode first
+		self.fields["NTLMSSPNtWorkstationName"] = self.fields["NTLMSSPNtWorkstationName"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"].encode('utf-16le').decode('latin-1')
+		self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"] = self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"].encode('utf-16le').decode('latin-1')
+
+		###### Workstation Offset
+		CalculateOffsetWorkstation = str(self.fields["NTLMSSPSignature"])+str(self.fields["NTLMSSPSignatureNull"])+str(self.fields["NTLMSSPMessageType"])+str(self.fields["NTLMSSPNtWorkstationLen"])+str(self.fields["NTLMSSPNtWorkstationMaxLen"])+str(self.fields["NTLMSSPNtWorkstationBuffOffset"])+str(self.fields["NTLMSSPNtNegotiateFlags"])+str(self.fields["NTLMSSPNtServerChallenge"])+str(self.fields["NTLMSSPNtReserved"])+str(self.fields["NTLMSSPNtTargetInfoLen"])+str(self.fields["NTLMSSPNtTargetInfoMaxLen"])+str(self.fields["NTLMSSPNtTargetInfoBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+		###### AvPairs Offset
+		CalculateLenAvpairs = str(self.fields["NTLMSSPNTLMChallengeAVPairsId"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsLen"])+str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs2Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs3Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs5Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5Len"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])+(self.fields["NTLMSSPNTLMChallengeAVPairs6Id"])+str(self.fields["NTLMSSPNTLMChallengeAVPairs6Len"])
+
+		##### Workstation Offset Calculation:
+		self.fields["NTLMSSPNtWorkstationBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation))
+		self.fields["NTLMSSPNtWorkstationLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtWorkstationMaxLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNtWorkstationName"])))
+		##### IvPairs Offset Calculation:
+		self.fields["NTLMSSPNtTargetInfoBuffOffset"] = StructWithLenPython2or3("<i", len(CalculateOffsetWorkstation+str(self.fields["NTLMSSPNtWorkstationName"])))
+		self.fields["NTLMSSPNtTargetInfoLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		self.fields["NTLMSSPNtTargetInfoMaxLen"] = StructWithLenPython2or3("<h", len(CalculateLenAvpairs))
+		##### IvPair Calculation:
+		self.fields["NTLMSSPNTLMChallengeAVPairs5Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs5UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs3Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs3UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs2Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs2UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairs1Len"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairs1UnicodeStr"])))
+		self.fields["NTLMSSPNTLMChallengeAVPairsLen"] = StructWithLenPython2or3("<h", len(str(self.fields["NTLMSSPNTLMChallengeAVPairsUnicodeStr"])))
+
+class RPCNTLMNego(Packet):
+	fields = OrderedDict([
+		("Version",          "\x05"),
+		("VersionLow",       "\x00"),
+		("PacketType",       "\x0C"),#Bind Ack.
+		("PacketFlag",       "\x07"),#lastfrag
+		("DataRepresent",    "\x10\x00\x00\x00"),
+		("FragLen",          "\xd0\x00"),
+		("AuthLen",          "\x28\x00"),
+
+		("CallID",           "\x02\x00\x00\x00"),
+		("MaxTransFrag",     "\xd0\x16"),
+		("MaxRecvFrag",      "\xd0\x16"),
+		("GroupAssoc",       "\x94\x2c\x00\x00"),
+		("CurrentPortLen",   "\x06\x00"),
+		("CurrentPortStr",   settings.Config.RPCPort),
+		("CurrentPortNull",   "\x00"),
+		("Pcontext",          "\x03\x00\x00\x00"),
+		("CTX0ContextID",    "\x02\x00"),
+		("CTX0ItemNumber",   "\x02\x00"),
+		("CTX0UID",          "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("CTX0UIDVersion",   "\x00\x00\x00\x00"),
+
+		("CTX1ContextID",    "\x00\x00"),
+		("CTX1ItemNumber",   "\x00\x00"),
+		("CTX1UID",          "\x33\x05\x71\x71\xba\xbe\x37\x49\x83\x19\xb5\xdb\xef\x9c\xcc\x36"),
+		("CTX1UIDVersion",   "\x01\x00\x00\x00"),
+		("CTX2ContextID",    "\x03\x00"),
+		("CTX2ItemNumber",   "\x03\x00"),
+		("CTX2UID",          "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+		("CTX2UIDVersion",   "\x00\x00\x00\x00"),
+		("AuthType",         "\x0A"), #RPC_C_AUTHN_WINNT
+		("AuthLevel",        "\x06"),
+		("AuthReserved",     "\x00\x00"),
+		("AuthContextID",    "\x00\x00\x00\x00"),
+		("Data",             ""), #NTLM  GOES HERE
+
+	])
+
+	def calculate(self):
+
+		self.fields["AuthLen"] = StructWithLenPython2or3("<h",len(str(self.fields["Data"])))
+		Data= str(self.fields["Version"])+str(self.fields["VersionLow"])+str(self.fields["PacketType"])+str(self.fields["PacketFlag"])+str(self.fields["DataRepresent"])+str(self.fields["FragLen"])+str(self.fields["AuthLen"])+str(self.fields["CallID"])+str(self.fields["MaxTransFrag"])+str(self.fields["MaxRecvFrag"])+str(self.fields["GroupAssoc"])+str(self.fields["CurrentPortLen"])+str(self.fields["CurrentPortStr"])+str(self.fields["CurrentPortNull"])+str(self.fields["Pcontext"])+str(self.fields["CTX0ContextID"])+str(self.fields["CTX0ItemNumber"])+str(self.fields["CTX0UID"])+str(self.fields["CTX0UIDVersion"])+str(self.fields["CTX1ContextID"])+str(self.fields["CTX1ItemNumber"])+str(self.fields["CTX1UID"])+str(self.fields["CTX1UIDVersion"])+str(self.fields["CTX2ContextID"])+str(self.fields["CTX2ItemNumber"])+str(self.fields["CTX2UID"])+str(self.fields["CTX2UIDVersion"]) +str(self.fields["AuthType"])+str(self.fields["AuthLevel"])+str(self.fields["AuthReserved"])+str(self.fields["AuthContextID"])+str(self.fields["Data"])
+
+		self.fields["FragLen"] = StructWithLenPython2or3("<h",len(Data))
 

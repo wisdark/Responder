@@ -43,6 +43,7 @@ parser.add_option('-F','--ForceWpadAuth',  action="store_true", help="Force NTLM
 parser.add_option('-P','--ProxyAuth',       action="store_true", help="Force NTLM (transparently)/Basic (prompt) authentication for the proxy. WPAD doesn't need to be ON. This option is highly effective when combined with -r. Default: False", dest="ProxyAuth_On_Off", default=False)
 
 parser.add_option('--lm',                  action="store_true", help="Force LM hashing downgrade for Windows XP/2003 and earlier. Default: False", dest="LM_On_Off", default=False)
+parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
 options, args = parser.parse_args()
 
@@ -262,6 +263,10 @@ def main():
 			from servers.HTTP import HTTP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 80, HTTP,)))
 
+		if settings.Config.WinRM_On_Off:
+			from servers.WinRM import WinRM
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 5985, WinRM,)))
+
 		if settings.Config.SSL_On_Off:
 			from servers.HTTP import HTTP
 			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 443, HTTP,)))
@@ -269,6 +274,11 @@ def main():
 		if settings.Config.RDP_On_Off:
 			from servers.RDP import RDP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3389, RDP,)))
+
+		if settings.Config.DCERPC_On_Off:
+			from servers.RPC import RPCMap, RPCMapper
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 135, RPCMap,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, settings.Config.RPCPort, RPCMapper,)))
 
 		if settings.Config.WPAD_On_Off:
 			from servers.HTTP_Proxy import HTTP_Proxy
@@ -307,8 +317,9 @@ def main():
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 110, POP3,)))
 
 		if settings.Config.LDAP_On_Off:
-			from servers.LDAP import LDAP
+			from servers.LDAP import LDAP, CLDAP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 389, LDAP,)))
+			threads.append(Thread(target=serve_thread_udp, args=('', 389, CLDAP,)))
 
 		if settings.Config.SMTP_On_Off:
 			from servers.SMTP import ESMTP
@@ -328,7 +339,7 @@ def main():
 			thread.setDaemon(True)
 			thread.start()
 
-		print(color('[+]', 2, 1) + " Listening for events...")
+		print(color('\n[+]', 2, 1) + " Listening for events...\n")
 
 		while True:
 			time.sleep(1)

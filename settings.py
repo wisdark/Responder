@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import utils, sys
+import utils, sys, random
 if (sys.version_info > (3, 0)):
 	import configparser as ConfigParser
 else:
@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.0.2.0'
+__version__ = 'Responder 3.0.6.0'
 
 class Settings:
 	
@@ -96,6 +96,8 @@ class Settings:
 		self.LDAP_On_Off     = self.toBool(config.get('Responder Core', 'LDAP'))
 		self.DNS_On_Off      = self.toBool(config.get('Responder Core', 'DNS'))
 		self.RDP_On_Off      = self.toBool(config.get('Responder Core', 'RDP'))
+		self.DCERPC_On_Off      = self.toBool(config.get('Responder Core', 'DCERPC'))
+		self.WinRM_On_Off      = self.toBool(config.get('Responder Core', 'WINRM'))
 		self.Krb_On_Off      = self.toBool(config.get('Responder Core', 'Kerberos'))
 
 		# Db File
@@ -142,11 +144,12 @@ class Settings:
 		self.WPAD_Script      = config.get('HTTP Server', 'WPADScript')
 		self.HtmlToInject     = config.get('HTTP Server', 'HtmlToInject')
 
-		if not os.path.exists(self.Html_Filename):
-			print(utils.color("/!\ Warning: %s: file not found" % self.Html_Filename, 3, 1))
+		if self.Serve_Exe is True:	
+			if not os.path.exists(self.Html_Filename):
+				print(utils.color("/!\ Warning: %s: file not found" % self.Html_Filename, 3, 1))
 
-		if not os.path.exists(self.Exe_Filename):
-			print(utils.color("/!\ Warning: %s: file not found" % self.Exe_Filename, 3, 1))
+			if not os.path.exists(self.Exe_Filename):
+				print(utils.color("/!\ Warning: %s: file not found" % self.Exe_Filename, 3, 1))
 
 		# SSL Options
 		self.SSLKey  = config.get('HTTPS Server', 'SSLKey')
@@ -158,6 +161,12 @@ class Settings:
 		self.DontRespondTo     = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondTo').strip().split(',')]))
 		self.DontRespondToName = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondToName').strip().split(',')]))
 
+		#Generate Random stuff for one Responder session
+		self.MachineName       = 'WIN-'+''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(11)])
+		self.Domain            = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(4)])
+		self.DomainName        = self.Domain + '.LOCAL'
+		self.MachineNego       = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(9)]) +'$@'+self.DomainName
+		self.RPCPort           = random.randrange(45000, 49999)
 		# Auto Ignore List
 		self.AutoIgnore                       = self.toBool(config.get('Responder Core', 'AutoIgnoreAfterSuccess'))
 		self.CaptureMultipleCredentials       = self.toBool(config.get('Responder Core', 'CaptureMultipleCredentials'))
@@ -167,6 +176,7 @@ class Settings:
 		# CLI options
 		self.ExternalIP         = options.ExternalIP
 		self.LM_On_Off          = options.LM_On_Off
+		self.NOESS_On_Off       = options.NOESS_On_Off
 		self.WPAD_On_Off        = options.WPAD_On_Off
 		self.Wredirect          = options.Wredirect
 		self.NBTNSDomain        = options.NBTNSDomain
@@ -210,12 +220,16 @@ class Settings:
 			print(utils.color("[!] The challenge must be exactly 16 chars long.\nExample: 1122334455667788", 1))
 			sys.exit(-1)
 
-		self.Challenge = ""
+		self.Challenge = b''
 		if self.NumChal.lower() == 'random':
 			pass
-		else: 
-			for i in range(0, len(self.NumChal),2):
-				self.Challenge += self.NumChal[i:i+2].decode("hex")
+		else:
+			if self.PY2OR3 == 'PY2':
+				for i in range(0, len(self.NumChal),2):
+					self.Challenge += self.NumChal[i:i+2].decode("hex")
+			else:
+					self.Challenge = bytes.fromhex(self.NumChal)
+
 
 		# Set up logging
 		logging.basicConfig(filename=self.SessionLogFile, level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')

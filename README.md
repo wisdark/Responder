@@ -10,17 +10,17 @@ Author: Laurent Gaffie <laurent.gaffie@gmail.com >  https://g-laurent.blogspot.c
 
 Responder is an LLMNR, NBT-NS and MDNS poisoner. It will answer to *specific* NBT-NS (NetBIOS Name Service) queries based on their name suffix (see: http://support.microsoft.com/kb/163409). By default, the tool will only answer to File Server Service request, which is for SMB.
 
-The concept behind this is to target our answers, and be stealthier on the network. This also helps to ensure that we don't break legitimate NBT-NS behavior. You can set the -r option via command line if you want to answer to the Workstation Service request name suffix.
+The concept behind this is to target our answers, and be stealthier on the network. This also helps to ensure that we don't break legitimate NBT-NS behavior. You can set the -r option via command line if you want to answer to the Workstation Service request name suffix. The option -d is also available if you want to poison Domain Service name queries.
 
 ## Features ##
 
 - Built-in SMB Auth server.
 	
-Supports NTLMv1, NTLMv2 hashes with Extended Security NTLMSSP by default. Successfully tested from Windows 95 to Server 2012 RC, Samba and Mac OSX Lion. Clear text password is supported for NT4, and LM hashing downgrade when the --lm option is set. SMBv2 has also been implemented and is supported by default.
+Supports NTLMv1, NTLMv2 hashes with Extended Security NTLMSSP by default. Successfully tested from Windows 95 to Server 2022, Samba and Mac OSX Lion. Clear text password is supported for NT4, and LM hashing downgrade when the --lm option is set. If --disable-ess is set, extended session security will be disabled for NTLMv1 authentication. SMBv2 has also been implemented and is supported by default.
 
 - Built-in MSSQL Auth server.
 
-In order to redirect SQL Authentication to this tool, you will need to set the option -r (NBT-NS queries for SQL Server lookup are using the Workstation Service name suffix) for systems older than windows Vista (LLMNR will be used for Vista and higher). This server supports NTLMv1, LMv2 hashes. This functionality was successfully tested on Windows SQL Server 2005 & 2008.
+In order to redirect SQL Authentication to this tool, you will need to set the option -r (NBT-NS queries for SQL Server lookup are using the Workstation Service name suffix) for systems older than windows Vista (LLMNR will be used for Vista and higher). This server supports NTLMv1, LMv2 hashes. This functionality was successfully tested on Windows SQL Server 2005, 2008, 2012, 2019.
 
 - Built-in RDP Auth server.
 
@@ -28,7 +28,7 @@ In order to redirect RDP Authentication to this tool, you will need to set the o
 
 - Built-in HTTP Auth server.
 
-In order to redirect HTTP Authentication to this tool, you will need to set the option -r for Windows version older than Vista (NBT-NS queries for HTTP server lookup are sent using the Workstation Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMv1, NTLMv2 hashes *and* Basic Authentication. This server was successfully tested on IE 6 to IE 10, Firefox, Chrome, Safari.
+In order to redirect HTTP Authentication to this tool, you will need to set the option -r for Windows version older than Vista (NBT-NS queries for HTTP server lookup are sent using the Workstation Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMv1, NTLMv2 hashes *and* Basic Authentication. This server was successfully tested on IE 6 to IE 11, Edge, Firefox, Chrome, Safari.
 
 Note: This module also works for WebDav NTLM authentication issued from Windows WebDav clients (WebClient). You can now send your custom files to a victim.
 
@@ -38,7 +38,11 @@ Same as above. The folder certs/ contains 2 default keys, including a dummy pri
 
 - Built-in LDAP Auth server.
 
-In order to redirect LDAP Authentication to this tool, you will need to set the option -r for Windows version older than Vista (NBT-NS queries for HTTP server lookup are sent using the Workstation Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMSSP hashes and Simple Authentication (clear text authentication). This server was successfully tested on Windows Support tool "ldp" and LdapAdmin.
+In order to redirect LDAP Authentication to this tool, you will need to set the option -r for Windows version older than Vista (NBT-NS queries for LDAP server lookup are sent using the Workstation Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMSSP hashes and Simple Authentication (clear text authentication). This server was successfully tested on Windows Support tool "ldp" and LdapAdmin.
+
+- Built-in DCE-RPC Auth server.
+
+In order to redirect DCE-RPC Authentication to this tool, you will need to set the option -r and -d (NBT-NS queries for DCE-RPC server lookup are sent using the Workstation and Domain Service name suffix). For Vista and higher, LLMNR will be used. This server supports NTLMSSP hashes. This server was successfully tested on Windows XP to Server 2019.
 
 - Built-in FTP, POP3, IMAP, SMTP Auth servers.
 
@@ -46,7 +50,7 @@ This modules will collect clear text credentials.
 
 - Built-in DNS server.
 
-This server will answer type A queries. This is really handy when it's combined with ARP spoofing. 
+This server will answer type SRV and A queries. This is really handy when it's combined with ARP spoofing. 
 
 - Built-in WPAD Proxy Server.
 
@@ -70,7 +74,7 @@ For MITM on Windows XP/2003 and earlier Domain members. This attack combined wit
 
     python tools/DHCP.py
 
-DHCP Inform Spoofing. Allows you to let the real DHCP Server issue IP addresses, and then send a DHCP Inform answer to set your IP address as a primary DNS server, and your own WPAD URL.
+DHCP Inform Spoofing. Allows you to let the real DHCP Server issue IP addresses, and then send a DHCP Inform answer to set your IP address as a primary DNS server, and your own WPAD URL. To inject a DNS server, domain, route on all Windows version and any linux box, use -R
 
 - Analyze mode.
 
@@ -93,7 +97,7 @@ Additionally, all captured hashed are logged into an SQLite database which you c
 
 ## Considerations ##
 
-- This tool listens on several ports: UDP 137, UDP 138, UDP 53, UDP/TCP 389,TCP 1433, UDP 1434, TCP 80, TCP 139, TCP 445, TCP 21, TCP 3141,TCP 25, TCP 110, TCP 587, TCP 3128 and Multicast UDP 5553.
+- This tool listens on several ports: UDP 137, UDP 138, UDP 53, UDP/TCP 389,TCP 1433, UDP 1434, TCP 80, TCP 135, TCP 139, TCP 445, TCP 21, TCP 3141,TCP 25, TCP 110, TCP 587, TCP 3128, Multicast UDP 5355 and 5353.
 
 - If you run Samba on your system, stop smbd and nmbd and all other services listening on these ports.
 
@@ -163,31 +167,47 @@ Options:
                                 with -r. Default: Off
 	  --lm                  Force LM hashing downgrade for Windows XP/2003 and
 	                        earlier. Default: Off
+	  --disable-ess         Force ESS downgrade. Default: Off
 	  -v, --verbose         Increase verbosity.
 	
 
 ## Donation ##
 
-You can contribute to this project by donating to the following BTC address:
+You can contribute to this project by donating to the following $XLM (Stellar Lumens) address:
 
-1Pv9rZMNfy9hsW19eQhNGs22gY9sf6twjW
+"GCGBMO772FRLU6V4NDUKIEXEFNVSP774H2TVYQ3WWHK4TEKYUUTLUKUH"
 
+Or BTC address:
+
+"1HkFmFs5fmbCoJ7ZM5HHbGgjyqemfU9o7Q"
 
 ## Acknowledgments ##
 
 Late Responder development has been possible because of the donations received from individuals and companies.
 
-We would like to thanks those major donator:
+We would like to thanks those major sponsors:
 
-- SecureWorks : https://www.secureworks.com/
+- SecureWorks: https://www.secureworks.com/
+
+- Synacktiv: https://www.synacktiv.com/
 
 - Black Hills Information Security: http://www.blackhillsinfosec.com/
 
 - TrustedSec: https://www.trustedsec.com/
 
+- Red Siege Information Security: https://www.redsiege.com/
+
+- Open-Sec: http://www.open-sec.com/
+
 - And all, ALL the pentesters around the world who donated to this project.
 
 Thank you.
+
+## Official Discord Channel
+
+Come hang out on Discord!
+
+[![Porchetta Industries](https://discordapp.com/api/guilds/736724457258745996/widget.png?style=banner3)](https://discord.gg/sEkn3aa)
 
 ## Copyright ##
 

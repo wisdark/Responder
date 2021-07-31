@@ -16,6 +16,20 @@ def StructWithLenPython2or3(endian,data):
     #Python3...
     else:
         return struct.pack(endian, data).decode('latin-1')
+
+
+def NetworkSendBufferPython2or3(data):
+	if PY2OR3 == "PY2":
+		return str(data)
+	else:
+		return bytes(str(data), 'latin-1')
+
+def NetworkRecvBufferPython2or3(data):
+	if PY2OR3 == "PY2":
+		return str(data)
+	else:
+		return str(data.decode('latin-1'))
+
 class Packet():
     fields = OrderedDict([
     ])
@@ -416,3 +430,195 @@ class SMBTransRAPData(Packet):
         ##Bcc Buff Len
         BccComplete    = str(self.fields["Terminator"])+str(self.fields["PipeName"])+str(self.fields["PipeTerminator"])+str(self.fields["Data"])
         self.fields["Bcc"] = StructWithLenPython2or3("<i", len(BccComplete))[:2]
+
+######################FindSMBTime.py##########################
+class SMBHeaderReq(Packet):
+    fields = OrderedDict([
+        ("Proto", "\xff\x53\x4d\x42"),
+        ("Cmd", "\x72"),
+        ("Error-Code", "\x00\x00\x00\x00" ),
+        ("Flag1", "\x10"),
+        ("Flag2", "\x00\x00"),
+        ("Pidhigh", "\x00\x00"),
+        ("Signature", "\x00\x00\x00\x00\x00\x00\x00\x00"),
+        ("Reserved", "\x00\x00"),
+        ("TID", "\x00\x00"),
+        ("PID", "\xff\xfe"),
+        ("UID", "\x00\x00"),
+        ("MID", "\x00\x00"),
+    ])
+
+class SMB2NegoReq(Packet):
+    fields = OrderedDict([
+        ("Wordcount", "\x00"),
+        ("Bcc", "\x62\x00"),
+        ("Data", "")
+    ])
+    
+    def calculate(self):
+        self.fields["Bcc"] = StructWithLenPython2or3("<H",len(str(self.fields["Data"])))
+
+class SMB2NegoDataReq(Packet):
+    fields = OrderedDict([
+        ("StrType","\x02" ),
+        ("dialect", "NT LM 0.12\x00"),
+        ("StrType1","\x02"),
+        ("dialect1", "SMB 2.002\x00"),
+        ("StrType2","\x02"),
+        ("dialect2", "SMB 2.???\x00"),
+    ])
+
+##################################################################
+# SMB2 Finger                                                    #
+##################################################################
+
+class SMB2NegoData(Packet):
+    fields = OrderedDict([
+        ("separator1","\x02" ),
+        ("dialect1", "\x50\x43\x20\x4e\x45\x54\x57\x4f\x52\x4b\x20\x50\x52\x4f\x47\x52\x41\x4d\x20\x31\x2e\x30\x00"),
+        ("separator2","\x02"),
+        ("dialect2", "\x4c\x41\x4e\x4d\x41\x4e\x31\x2e\x30\x00"),
+        ("separator3","\x02"),
+        ("dialect3", "\x57\x69\x6e\x64\x6f\x77\x73\x20\x66\x6f\x72\x20\x57\x6f\x72\x6b\x67\x72\x6f\x75\x70\x73\x20\x33\x2e\x31\x61\x00"),
+        ("separator4","\x02"),
+        ("dialect4", "\x4c\x4d\x31\x2e\x32\x58\x30\x30\x32\x00"),
+        ("separator5","\x02"),
+        ("dialect5", "\x4c\x41\x4e\x4d\x41\x4e\x32\x2e\x31\x00"),
+        ("separator6","\x02"),
+        ("dialect6", "\x4e\x54\x20\x4c\x4d\x20\x30\x2e\x31\x32\x00"),
+        ("separator7","\x02"),
+        ("dialect7", "\x53\x4d\x42\x20\x32\x2e\x30\x30\x32\x00"),
+        ("separator8","\x02"),
+        ("dialect8", "\x53\x4d\x42\x20\x32\x2e\x3f\x3f\x3f\x00"),
+    ])
+
+
+class SMBv2Head(Packet):
+    fields = OrderedDict([
+        ("Server", "\xfe\x53\x4d\x42"),
+        ("HeadLen", "\x40\x00"), 
+        ("CreditCharge", "\x00\x00"),
+        ("NTStatus","\x00\x00\x00\x00"),
+        ("SMBv2Command","\x00\x00"),
+        ("CreditRequested","\x00\x00"),
+        ("Flags","\x00\x00\x00\x00"),
+        ("ChainOffset","\x00\x00\x00\x00"),
+        ("CommandSequence","\x01\x00\x00\x00\x00\x00\x00\x00"),
+        ("ProcessID","\xff\xfe\x00\x00"),
+        ("TreeID","\x00\x00\x00\x00"),
+        ("SessionID","\x00\x00\x00\x00\x00\x00\x00\x00"),
+        ("Signature","\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+        ])
+
+    def calculate(self): 
+        data1 = str(self.fields["Server"])+str(self.fields["HeadLen"])+str(self.fields["CreditCharge"])+str(self.fields["NTStatus"])+str(self.fields["SMBv2Command"])+str(self.fields["CreditRequested"])+str(self.fields["Flags"])+str(self.fields["ChainOffset"])+str(self.fields["CommandSequence"])+str(self.fields["ProcessID"])+str(self.fields["TreeID"])+str(self.fields["SessionID"])+str(self.fields["Signature"])
+
+        self.fields["HeadLen"] = StructWithLenPython2or3("<h", len(data1))
+
+class SMBv2Negotiate(Packet):
+    fields = OrderedDict([
+        ("Len", "\x24\x00"), 
+        ("DialectCount", "\x02\x00"), 
+        ("SecurityMode", "\x01\x00"),
+        ("Reserved","\x00\x00"),
+        ("Capabilities","\x00\x00\x00\x00"),
+        ("ClientGUID","\xd5\xa1\x5f\x6e\x9a\x75\xe1\x11\x87\x82\x00\x01\x4a\xf1\x18\xee"),
+        ("ClientStartTime","\x00\x00\x00\x00\x00\x00\x00\x00"),
+        ("Dialect1","\x02\x02"),
+        ("Dialect2","\x10\x02"),
+        ])
+
+    def calculate(self): 
+        data1 = str(self.fields["Len"])+str(self.fields["DialectCount"])+str(self.fields["SecurityMode"])+str(self.fields["Reserved"])+str(self.fields["Capabilities"])+str(self.fields["ClientGUID"])+str(self.fields["ClientStartTime"])
+
+        self.fields["Len"] = StructWithLenPython2or3("<h", len(data1))
+
+class SMBv2Session1(Packet):
+    fields = OrderedDict([
+        ("Len", "\x19\x00"),
+        ("VCNumber", "\x00"), 
+        ("SecurityMode", "\x01"),
+        ("Capabilities","\x01\x00\x00\x00"),
+        ("Channel","\x00\x00\x00\x00"),
+        ("SecurityBufferOffset","\x58\x00"),
+        ("SecurityBufferLen","\x4a\x00"),
+        ("PreviousSessionId","\x00\x00\x00\x00\x00\x00\x00\x00"),
+
+        ("ApplicationHeaderTag","\x60"),
+        ("ApplicationHeaderLen","\x48"),
+        ("AsnSecMechType","\x06"),
+        ("AsnSecMechLen","\x06"),
+        ("AsnSecMechStr","\x2b\x06\x01\x05\x05\x02"),
+        ("ChoosedTag","\xa0"),
+        ("ChoosedTagStrLen","\x3e"),
+        ("NegTokenInitSeqHeadTag","\x30"),
+        ("NegTokenInitSeqHeadLen","\x3c"),
+        ("NegTokenInitSeqHeadTag1","\xA0"),
+        ("NegTokenInitSeqHeadLen1","\x0e"),
+        ("NegTokenInitSeqNLMPTag","\x30"),
+        ("NegTokenInitSeqNLMPLen","\x0c"),
+        ("NegTokenInitSeqNLMPTag1","\x06"),
+        ("NegTokenInitSeqNLMPTag1Len","\x0a"),
+        ("NegTokenInitSeqNLMPTag1Str","\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a"),
+        ("NegTokenInitSeqNLMPTag2","\xa2"),
+        ("NegTokenInitSeqNLMPTag2Len","\xa2"),
+        ("NegTokenInitSeqNLMPTag2Octet","\x04"),
+        ("NegTokenInitSeqNLMPTag2OctetLen","\x28"),
+        ("NegTokenInitSeqMechSignature","\x4E\x54\x4c\x4d\x53\x53\x50\x00"),
+        ("NegTokenInitSeqMechMessageType","\x01\x00\x00\x00"), 
+        ("NegTokenInitSeqMechMessageFlags","\x97\x82\x08\xe2"), 
+        ("NegTokenInitSeqMechMessageDomainNameLen","\x00\x00"),
+        ("NegTokenInitSeqMechMessageDomainNameMaxLen","\x00\x00"),
+        ("NegTokenInitSeqMechMessageDomainNameBuffOffset","\x00\x00\x00\x00"),
+        ("NegTokenInitSeqMechMessageWorkstationNameLen","\x00\x00"),
+        ("NegTokenInitSeqMechMessageWorkstationNameMaxLen","\x00\x00"),
+        ("NegTokenInitSeqMechMessageWorkstationNameBuffOffset","\x00\x00\x00\x00"),
+
+        ("NegTokenInitSeqMechMessageVersionHigh","\x06"),
+        ("NegTokenInitSeqMechMessageVersionLow","\x01"),
+        ("NegTokenInitSeqMechMessageVersionBuilt","\xB1\x1D"),
+        ("NegTokenInitSeqMechMessageVersionReserved","\x00\x00\x00"),
+        ("NegTokenInitSeqMechMessageVersionNTLMType","\x0f"),
+        ])
+
+    def calculate(self): 
+        
+
+        data1 = str(self.fields["Len"])+str(self.fields["VCNumber"])+str(self.fields["SecurityMode"])+str(self.fields["Capabilities"])+str(self.fields["Channel"])+str(self.fields["SecurityBufferOffset"])+str(self.fields["SecurityBufferLen"])+str(self.fields["PreviousSessionId"])
+
+        data2 = str(self.fields["ApplicationHeaderTag"])+str(self.fields["ApplicationHeaderLen"])+str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLen"])+str(self.fields["AsnSecMechStr"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagStrLen"])+str(self.fields["NegTokenInitSeqHeadTag"])+str(self.fields["NegTokenInitSeqHeadLen"])+str(self.fields["NegTokenInitSeqHeadTag1"])+str(self.fields["NegTokenInitSeqHeadLen1"])+str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data3 = str(self.fields["AsnSecMechType"])+str(self.fields["AsnSecMechLen"])+str(self.fields["AsnSecMechStr"])+str(self.fields["ChoosedTag"])+str(self.fields["ChoosedTagStrLen"])+str(self.fields["NegTokenInitSeqHeadTag"])+str(self.fields["NegTokenInitSeqHeadLen"])+str(self.fields["NegTokenInitSeqHeadTag1"])+str(self.fields["NegTokenInitSeqHeadLen1"])+str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data4 = str(self.fields["NegTokenInitSeqHeadTag"])+str(self.fields["NegTokenInitSeqHeadLen"])+str(self.fields["NegTokenInitSeqHeadTag1"])+str(self.fields["NegTokenInitSeqHeadLen1"])+str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data5 = str(self.fields["NegTokenInitSeqHeadTag1"])+str(self.fields["NegTokenInitSeqHeadLen1"])+str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data6 = str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])+str(self.fields["NegTokenInitSeqNLMPTag2"])+str(self.fields["NegTokenInitSeqNLMPTag2Len"])+str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data7 = str(self.fields["NegTokenInitSeqNLMPTag2Octet"])+str(self.fields["NegTokenInitSeqNLMPTag2OctetLen"])+str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        data8 = str(self.fields["NegTokenInitSeqMechSignature"])+str(self.fields["NegTokenInitSeqMechMessageType"])+str(self.fields["NegTokenInitSeqMechMessageFlags"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageDomainNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameMaxLen"])+str(self.fields["NegTokenInitSeqMechMessageWorkstationNameBuffOffset"])+str(self.fields["NegTokenInitSeqMechMessageVersionHigh"])+str(self.fields["NegTokenInitSeqMechMessageVersionLow"])+str(self.fields["NegTokenInitSeqMechMessageVersionBuilt"])+str(self.fields["NegTokenInitSeqMechMessageVersionReserved"])+str(self.fields["NegTokenInitSeqMechMessageVersionNTLMType"])
+
+        #Buff Offset
+        self.fields["SecurityBufferOffset"] = StructWithLenPython2or3("<h", len(data1)+64)
+        ##Buff Len
+        self.fields["SecurityBufferLen"] = StructWithLenPython2or3("<h", len(data2))
+        ##App Header
+        self.fields["ApplicationHeaderLen"] = StructWithLenPython2or3("<B", len(data3))
+        ##Asn Field 1
+        self.fields["AsnSecMechLen"] = StructWithLenPython2or3("<B", len(str(self.fields["AsnSecMechStr"])))
+        ##Asn Field 1
+        self.fields["ChoosedTagStrLen"] = StructWithLenPython2or3("<B", len(data4))
+        ##SpNegoTokenLen
+        self.fields["NegTokenInitSeqHeadLen"] = StructWithLenPython2or3("<B", len(data5))
+        ##NegoTokenInitcodecs.decode(RandomStr,'hex')
+        self.fields["NegTokenInitSeqHeadLen1"] = StructWithLenPython2or3("<B", len(str(self.fields["NegTokenInitSeqNLMPTag"])+str(self.fields["NegTokenInitSeqNLMPLen"])+str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"]))) 
+        ## Tag0 Len
+        self.fields["NegTokenInitSeqNLMPLen"] = StructWithLenPython2or3("<B", len(str(self.fields["NegTokenInitSeqNLMPTag1"])+str(self.fields["NegTokenInitSeqNLMPTag1Len"])+str(self.fields["NegTokenInitSeqNLMPTag1Str"])))
+        ## Tag0 Str Len
+        self.fields["NegTokenInitSeqNLMPTag1Len"] = StructWithLenPython2or3("<B", len(str(self.fields["NegTokenInitSeqNLMPTag1Str"])))
+        ## Tag2 Len
+        self.fields["NegTokenInitSeqNLMPTag2Len"] = StructWithLenPython2or3("<B", len(data7))
+        ## Tag3 Len
+        self.fields["NegTokenInitSeqNLMPTag2OctetLen"] = StructWithLenPython2or3("<B", len(data8))

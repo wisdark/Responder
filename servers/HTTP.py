@@ -222,7 +222,7 @@ def PacketSequence(data, client, Challenge):
 			else:
 				Buffer = IIS_Auth_Granted(Payload=settings.Config.HtmlToInject)
 				Buffer.calculate()
-				return NetworkSendBufferPython2or3(Buffer)
+				return Buffer
 
 	elif Basic_Auth:
 		ClearText_Auth = b64decode(''.join(Basic_Auth))
@@ -248,7 +248,7 @@ def PacketSequence(data, client, Challenge):
 		else:
 			Buffer = IIS_Auth_Granted(Payload=settings.Config.HtmlToInject)
 			Buffer.calculate()
-			return NetworkSendBufferPython2or3(Buffer)
+			return Buffer
 	else:
 		if settings.Config.Basic:
 			Response = IIS_Basic_401_Ans()
@@ -308,6 +308,6 @@ class HTTP(BaseRequestHandler):
 					Buffer = PacketSequence(data,self.client_address[0], Challenge)
 					self.request.send(NetworkSendBufferPython2or3(Buffer))
 		
-		except socket.error:
+		except:
 			pass
 			
