@@ -369,6 +369,7 @@ def StartupMessage():
 	print('    %-27s' % "LLMNR" + enabled)
 	print('    %-27s' % "NBT-NS" + enabled)
 	print('    %-27s' % "DNS/MDNS" + enabled)
+	print('    %-27s' % "DHCP" + (enabled if settings.Config.DHCP_On_Off else disabled))
 	print('')
 
 	print(color("[+] ", 2, 1) + "Servers:")
@@ -429,3 +430,4 @@ def StartupMessage():
 	print('    %-27s' % "Responder Machine Name" + color('[%s]' % settings.Config.MachineName, 5, 1))
 	print('    %-27s' % "Responder Domain Name" + color('[%s]' % settings.Config.DomainName, 5, 1))
 	print('    %-27s' % "Responder DCE-RPC Port " + color('[%s]' % settings.Config.RPCPort, 5, 1))
+

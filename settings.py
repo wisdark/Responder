@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.0.6.0'
+__version__ = 'Responder 3.0.7.0'
 
 class Settings:
 	
@@ -68,7 +68,7 @@ class Settings:
 
 	def populate(self, options):
 
-		if options.Interface is None and utils.IsOsX() is False:
+		if options.Interface == None and utils.IsOsX() == False:
 			print(utils.color("Error: -I <if> mandatory option is missing", 1))
 			sys.exit(-1)
 
@@ -144,7 +144,7 @@ class Settings:
 		self.WPAD_Script      = config.get('HTTP Server', 'WPADScript')
 		self.HtmlToInject     = config.get('HTTP Server', 'HtmlToInject')
 
-		if self.Serve_Exe is True:	
+		if self.Serve_Exe == True:	
 			if not os.path.exists(self.Html_Filename):
 				print(utils.color("/!\ Warning: %s: file not found" % self.Html_Filename, 3, 1))
 
@@ -164,6 +164,7 @@ class Settings:
 		#Generate Random stuff for one Responder session
 		self.MachineName       = 'WIN-'+''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(11)])
 		self.Domain            = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(4)])
+		self.DHCPHostname      = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(9)])
 		self.DomainName        = self.Domain + '.LOCAL'
 		self.MachineNego       = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for i in range(9)]) +'$@'+self.DomainName
 		self.RPCPort           = random.randrange(45000, 49999)
@@ -179,7 +180,7 @@ class Settings:
 		self.NOESS_On_Off       = options.NOESS_On_Off
 		self.WPAD_On_Off        = options.WPAD_On_Off
 		self.Wredirect          = options.Wredirect
-		self.NBTNSDomain        = options.NBTNSDomain
+		self.DHCP_On_Off        = options.DHCP_On_Off
 		self.Basic              = options.Basic
 		self.Finger_On_Off      = options.Finger
 		self.Interface          = options.Interface
@@ -194,7 +195,7 @@ class Settings:
 		if self.ExternalIP:
 			self.ExternalIPAton = socket.inet_aton(self.ExternalIP)
 
-		if self.HtmlToInject is None:
+		if self.HtmlToInject == None:
 			self.HtmlToInject = ''
 
 		self.Bind_To         = utils.FindLocalIP(self.Interface, self.OURIP)
