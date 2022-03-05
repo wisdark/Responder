@@ -1,6 +1,6 @@
 # Responder/MultiRelay #
 
-LLMNR/NBT-NS/mDNS Poisoner and NTLMv1/2 Relay.
+IPv6/IPv4 LLMNR/NBT-NS/mDNS Poisoner and NTLMv1/2 Relay.
 
 Author: Laurent Gaffie <laurent.gaffie@gmail.com >  https://g-laurent.blogspot.com
 
@@ -8,11 +8,11 @@ Author: Laurent Gaffie <laurent.gaffie@gmail.com >  https://g-laurent.blogspot.c
 
 ## Intro ##
 
-Responder is an LLMNR, NBT-NS and MDNS poisoner. It will answer to *specific* NBT-NS (NetBIOS Name Service) queries based on their name suffix (see: http://support.microsoft.com/kb/163409). By default, the tool will only answer to File Server Service request, which is for SMB.
-
-The concept behind this is to target our answers, and be stealthier on the network. This also helps to ensure that we don't break legitimate NBT-NS behavior. You can set the -r option via command line if you want to answer to the Workstation Service request name suffix. The option -d is also available if you want to poison Domain Service name queries.
+Responder is an LLMNR, NBT-NS and MDNS poisoner. 
 
 ## Features ##
+
+- Dual IPv6/IPv4 stack.
 
 - Built-in SMB Auth server.
 	
@@ -89,7 +89,7 @@ All hashes are printed to stdout and dumped in a unique John Jumbo compliant fil
 Log files are located in the "logs/" folder. Hashes will be logged and printed only once per user per hash type, unless you are using the Verbose mode (-v).
 
 - Responder will log all its activity to Responder-Session.log
-- Analyze mode will be logged to Analyze-Session.log
+- Analyze mode will be logged to Analyzer-Session.log
 - Poisoning will be logged to Poisoners-Session.log
 
 Additionally, all captured hashed are logged into an SQLite database which you can configure in Responder.conf
@@ -129,46 +129,50 @@ Running the tool:
 
 Typical Usage Example:
 
-    ./Responder.py -I eth0 -rPv
+    ./Responder.py -I eth0 -Pv
 
 Options:
 
-	  --version             show program's version number and exit.
-	  -h, --help            show this help message and exit.
-	  -A, --analyze         Analyze mode. This option allows you to see NBT-NS,
-	                        BROWSER, LLMNR requests without responding.
-	  -I eth0, --interface=eth0
-	                        Network interface to use.
-          -i 10.0.0.21, --ip=10.0.0.21
-                                Local IP to use (only for OSX)
-          -e 10.0.0.22, --externalip=10.0.0.22
-                                Poison all requests with another IP address than
-                                Responder's one.
-	  -b, --basic           Return a Basic HTTP authentication. Default: NTLM
-	  -r, --wredir          Enable answers for netbios wredir suffix queries.
-	                        Answering to wredir will likely break stuff on the
-	                        network. Default: Off
-	  -d, --NBTNSdomain     Enable answers for netbios domain suffix queries.
-	                        Answering to domain suffixes will likely break stuff
-	                        on the network. Default: Off
-	  -f, --fingerprint     This option allows you to fingerprint a host that
-	                        issued an NBT-NS or LLMNR query.
-	  -w, --wpad            Start the WPAD rogue proxy server. Default value is
-	                        Off
-	  -u UPSTREAM_PROXY, --upstream-proxy=UPSTREAM_PROXY
-	                        Upstream HTTP proxy used by the rogue WPAD Proxy for
-	                        outgoing requests (format: host:port)
-	  -F, --ForceWpadAuth   Force NTLM/Basic authentication on wpad.dat file
-	                        retrieval. This may cause a login prompt. Default:
-	                        Off
-	  -P, --ProxyAuth       Force NTLM (transparently)/Basic (prompt) 
-                                authentication for the proxy. WPAD doesn't need to
-                                be ON. This option is highly effective when combined
-                                with -r. Default: Off
-	  --lm                  Force LM hashing downgrade for Windows XP/2003 and
-	                        earlier. Default: Off
-	  --disable-ess         Force ESS downgrade. Default: Off
-	  -v, --verbose         Increase verbosity.
+    --version             show program's version number and exit
+    -h, --help            show this help message and exit
+    -A, --analyze         Analyze mode. This option allows you to see NBT-NS,
+                        BROWSER, LLMNR requests without responding.
+    -I eth0, --interface=eth0
+                        Network interface to use, you can use 'ALL' as a
+                        wildcard for all interfaces
+    -i 10.0.0.21, --ip=10.0.0.21
+                        Local IP to use (only for OSX)
+    -6 2002:c0a8:f7:1:3ba8:aceb:b1a9:81ed, --externalip6=2002:c0a8:f7:1:3ba8:aceb:b1a9:81ed
+                        Poison all requests with another IPv6 address than
+                        Responder's one.
+    -e 10.0.0.22, --externalip=10.0.0.22
+                        Poison all requests with another IP address than
+                        Responder's one.
+    -b, --basic           Return a Basic HTTP authentication. Default: NTLM
+    -d, --DHCP            Enable answers for DHCP broadcast requests. This
+                        option will inject a WPAD server in the DHCP response.
+                        Default: False
+    -D, --DHCP-DNS        This option will inject a DNS server in the DHCP
+                        response, otherwise a WPAD server will be added.
+                        Default: False
+    -w, --wpad            Start the WPAD rogue proxy server. Default value is
+                        False
+    -u UPSTREAM_PROXY, --upstream-proxy=UPSTREAM_PROXY
+                        Upstream HTTP proxy used by the rogue WPAD Proxy for
+                        outgoing requests (format: host:port)
+    -F, --ForceWpadAuth   Force NTLM/Basic authentication on wpad.dat file
+                        retrieval. This may cause a login prompt. Default:
+                        False
+    -P, --ProxyAuth       Force NTLM (transparently)/Basic (prompt)
+                        authentication for the proxy. WPAD doesn't need to be
+                        ON. This option is highly effective when combined with
+                        -r. Default: False
+    --lm                  Force LM hashing downgrade for Windows XP/2003 and
+                        earlier. Default: False
+    --disable-ess         Force ESS downgrade. Default: False
+    -v, --verbose         Increase verbosity.
+
+
 	
 
 ## Donation ##
@@ -203,11 +207,6 @@ We would like to thanks those major sponsors:
 
 Thank you.
 
-## Official Discord Channel
-
-Come hang out on Discord!
-
-[![Porchetta Industries](https://discordapp.com/api/guilds/736724457258745996/widget.png?style=banner3)](https://discord.gg/sEkn3aa)
 
 ## Copyright ##
 

