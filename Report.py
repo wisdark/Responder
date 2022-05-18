@@ -107,7 +107,7 @@ GetResponderUsernames(cursor)
 print(color("\n[+] Username details:", code = 2, modifier = 1))
 GetResponderUsernamesWithDetails(cursor)
 GetResponderUsernamesStatistic(cursor)
-print color("\n[+] RunFinger Scanned Hosts:", code = 2, modifier = 1)
+print (color("\n[+] RunFinger Scanned Hosts:", code = 2, modifier = 1))
 cursor.close()
 try:
 	cursor = FingerDbConnect()
