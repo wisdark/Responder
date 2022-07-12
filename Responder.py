@@ -250,17 +250,19 @@ def serve_thread_SSL(host, port, handler):
 
 		cert = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLCert)
 		key =  os.path.join(settings.Config.ResponderPATH, settings.Config.SSLKey)
-
+		context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+		context.load_cert_chain(cert, key)
 		if OsInterfaceIsSupported():
 			server = ThreadingTCPServer(('', port), handler)
-			server.socket = ssl.wrap_socket(server.socket, certfile=cert, keyfile=key, server_side=True)
+			server.socket = context.wrap_socket(server.socket, server_side=True)
 			server.serve_forever()
 		else:
 			server = ThreadingTCPServer(('', port), handler)
-			server.socket = ssl.wrap_socket(server.socket, certfile=cert, keyfile=key, server_side=True)
+			server.socket = context.wrap_socket(server.socket, server_side=True)
 			server.serve_forever()
 	except:
 		print(color("[!] ", 1, 1) + "Error starting SSL server on port " + str(port) + ", check permissions or other servers running.")
+
 
 def main():
 	try:
@@ -363,7 +365,7 @@ def main():
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 53, DNSTCP,)))
 
 		for thread in threads:
-			thread.setDaemon(True)
+			thread.daemon = True
 			thread.start()
 
 		if settings.Config.AnalyzeMode:
