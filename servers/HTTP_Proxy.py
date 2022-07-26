@@ -209,7 +209,7 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 	def handle(self):
 		(ip, port) =  self.client_address[0], self.client_address[1]
 		if settings.Config.Verbose:
-			print(text("[PROXY] Received connection from %s" % self.client_address[0]))
+			print(text("[PROXY] Received connection from %s" % self.client_address[0].replace("::ffff:","")))
 		self.__base_handle()
 
 	def _connect_to(self, netloc, soc):
@@ -286,7 +286,7 @@ class HTTP_Proxy(BaseHTTPServer.BaseHTTPRequestHandler):
 				Cookie = self.headers['Cookie'] if "Cookie" in self.headers else ''
 
 				if settings.Config.Verbose:
-					print(text("[PROXY] Client        : %s" % color(self.client_address[0], 3)))
+					print(text("[PROXY] Client        : %s" % color(self.client_address[0].replace("::ffff:",""), 3)))
 					print(text("[PROXY] Requested URL : %s" % color(self.path, 3)))
 					print(text("[PROXY] Cookie        : %s" % Cookie))
 

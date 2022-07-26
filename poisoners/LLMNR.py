@@ -64,7 +64,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 			if data[2:4] == b'\x00\x00' and LLMNRType:
 				if settings.Config.AnalyzeMode:
 					LineHeader = "[Analyze mode: LLMNR]"
-					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0], Name), 2, 1))
+					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
@@ -77,7 +77,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					LineHeader = "[*] [LLMNR]"
-					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0], Name), 2, 1))
+					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
@@ -90,7 +90,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					LineHeader = "[*] [LLMNR]"
-					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0], Name), 2, 1))
+					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR6', 
 							'SentToIp': self.client_address[0], 

@@ -134,7 +134,7 @@ class MSSQL(BaseRequestHandler):
 				if not data:
 					break
 				if settings.Config.Verbose:
-					print(text("[MSSQL] Received connection from %s" % self.client_address[0]))
+					print(text("[MSSQL] Received connection from %s" % self.client_address[0].replace("::ffff:","")))
 				if data[0] == b"\x12" or data[0] == 18:  # Pre-Login Message
 					Buffer = str(MSSQLPreLoginAnswer())
 					self.request.send(NetworkSendBufferPython2or3(Buffer))

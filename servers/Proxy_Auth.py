@@ -57,7 +57,7 @@ def PacketSequence(data, client, Challenge):
 		Packet_NTLM = b64decode(''.join(NTLM_Auth))[8:9]
 		if Packet_NTLM == b'\x01':
 			if settings.Config.Verbose:
-				print(text("[Proxy-Auth] Sending NTLM authentication request to %s" % client))
+				print(text("[Proxy-Auth] Sending NTLM authentication request to %s" % client.replace("::ffff:","")))
 			Buffer = NTLM_Challenge(ServerChallenge=NetworkRecvBufferPython2or3(Challenge))
 			Buffer.calculate()
 			Buffer_Ans =  WPAD_NTLM_Challenge_Ans(Payload = b64encode(NetworkSendBufferPython2or3(Buffer)).decode('latin-1'))
@@ -93,7 +93,7 @@ def PacketSequence(data, client, Challenge):
 		if settings.Config.Basic:
 			Response = WPAD_Basic_407_Ans()
 			if settings.Config.Verbose:
-				print(text("[Proxy-Auth] Sending BASIC authentication request to %s" % client))
+				print(text("[Proxy-Auth] Sending BASIC authentication request to %s" % client.replace("::ffff:","")))
 
 		else:
 			Response = WPAD_Auth_407_Ans()

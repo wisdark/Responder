@@ -144,7 +144,7 @@ class RPCMap(BaseRequestHandler):
 					RPC.calculate()
 					self.request.send(NetworkSendBufferPython2or3(str(RPC)))
 					data = self.request.recv(1024)
-					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto DSRUAPI auth server." % (self.client_address[0]), 3, 1))
+					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto DSRUAPI auth server." % (self.client_address[0].replace("::ffff:","")), 3, 1))
 					self.request.close()
 
 				#LSARPC
@@ -155,7 +155,7 @@ class RPCMap(BaseRequestHandler):
 					RPC.calculate()
 					self.request.send(NetworkSendBufferPython2or3(str(RPC)))
 					data = self.request.recv(1024)
-					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto LSARPC auth server." % (self.client_address[0]), 3, 1))
+					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto LSARPC auth server." % (self.client_address[0].replace("::ffff:","")), 3, 1))
 					self.request.close()
 
 				#WINSPOOL
@@ -166,7 +166,7 @@ class RPCMap(BaseRequestHandler):
 					RPC.calculate()
 					self.request.send(NetworkSendBufferPython2or3(str(RPC)))
 					data = self.request.recv(1024)
-					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto WINSPOOL auth server." % (self.client_address[0]), 3, 1))
+					print(color("[*] [DCE-RPC Mapper] Redirected %-15sto WINSPOOL auth server." % (self.client_address[0].replace("::ffff:","")), 3, 1))
 					self.request.close()
 
 				#NetLogon

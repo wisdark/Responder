@@ -61,7 +61,7 @@ class MDNS(BaseRequestHandler):
 			return None
 
 		if settings.Config.AnalyzeMode:  # Analyze Mode
-			print(text('[Analyze mode: MDNS] Request by %-15s for %s, ignoring' % (color(self.client_address[0], 3), color(Request_Name, 3))))
+			print(text('[Analyze mode: MDNS] Request by %-15s for %s, ignoring' % (color(self.client_address[0].replace("::ffff:",""), 3), color(Request_Name, 3))))
 			SavePoisonersToDb({
 						'Poisoner': 'MDNS', 
 						'SentToIp': self.client_address[0], 
@@ -73,7 +73,7 @@ class MDNS(BaseRequestHandler):
 			Buffer = MDNS_Ans(AnswerName = Poisoned_Name)
 			Buffer.calculate()
 			soc.sendto(NetworkSendBufferPython2or3(Buffer), self.client_address)
-			print(color('[*] [MDNS] Poisoned answer sent to %-15s for name %s' % (self.client_address[0], Request_Name), 2, 1))
+			print(color('[*] [MDNS] Poisoned answer sent to %-15s for name %s' % (self.client_address[0].replace("::ffff:",""), Request_Name), 2, 1))
 			SavePoisonersToDb({
 						'Poisoner': 'MDNS', 
 						'SentToIp': self.client_address[0], 
@@ -86,7 +86,7 @@ class MDNS(BaseRequestHandler):
 			Buffer = MDNS6_Ans(AnswerName = Poisoned_Name)
 			Buffer.calculate()
 			soc.sendto(NetworkSendBufferPython2or3(Buffer), self.client_address)
-			print(color('[*] [MDNS] Poisoned answer sent to %-15s for name %s' % (self.client_address[0], Request_Name), 2, 1))
+			print(color('[*] [MDNS] Poisoned answer sent to %-15s for name %s' % (self.client_address[0].replace("::ffff:",""), Request_Name), 2, 1))
 			SavePoisonersToDb({
 						'Poisoner': 'MDNS6', 
 						'SentToIp': self.client_address[0], 

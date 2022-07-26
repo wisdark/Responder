@@ -165,7 +165,7 @@ def BecomeBackup(data,Client):
 			Role       = NBT_NS_Role(data[45:48])
 
 			if settings.Config.AnalyzeMode:
-				print(text("[Analyze mode: Browser] Datagram Request from IP: %s hostname: %s via the: %s wants to become a Local Master Browser Backup on this domain: %s."%(Client, Name,Role,Domain)))
+				print(text("[Analyze mode: Browser] Datagram Request from IP: %s hostname: %s via the: %s wants to become a Local Master Browser Backup on this domain: %s."%(Client.replace("::ffff:",""), Name,Role,Domain)))
 				RAPInfo = RAPThisDomain(Client, Domain)
 				if RAPInfo is not None:
 					print(RAPInfo)
@@ -182,7 +182,7 @@ def ParseDatagramNBTNames(data,Client):
 
 	
 		if Role2 == "Domain Controller" or Role2 == "Browser Election" or Role2 == "Local Master Browser" and settings.Config.AnalyzeMode:
-			print(text('[Analyze mode: Browser] Datagram Request from IP: %s hostname: %s via the: %s to: %s. Service: %s' % (Client, Name, Role1, Domain, Role2)))
+			print(text('[Analyze mode: Browser] Datagram Request from IP: %s hostname: %s via the: %s to: %s. Service: %s' % (Client.replace("::ffff:",""), Name, Role1, Domain, Role2)))
 			RAPInfo = RAPThisDomain(Client, Domain)
 			if RAPInfo is not None:
 				print(RAPInfo)
