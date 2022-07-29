@@ -256,8 +256,8 @@ def ParseDHCPCode(data, ClientIP,DHCP_DNS):
     RequestIP   = data[245:249]
     
     if DHCPClient.count(MacAddrStr) >= 4:
-    	return "'%s' has been poisoned more than 4 times. Ignoring..." % MacAddrStr
-    	
+        return "'%s' has been poisoned more than 4 times. Ignoring..." % MacAddrStr
+
     if OpCode == b"\x02" and Respond_To_Requests:  # DHCP Offer
         ROUTERIP = ClientIP
         return 'Found DHCP server IP: %s, now waiting for incoming requests...' % (ROUTERIP)
@@ -346,5 +346,5 @@ def DHCP(DHCP_DNS):
                 if SrcPort == 67 or DstPort == 67:
                     ClientIP = socket.inet_ntoa(data[0][26:30])
                     ret = ParseDHCPCode(data[0][42:], ClientIP,DHCP_DNS)
-                    if ret:
+                    if ret and not settings.Config.Quiet_Mode:
                         print(text("[*] [DHCP] %s" % ret))
