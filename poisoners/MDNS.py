@@ -32,14 +32,14 @@ def Parse_MDNS_Name(data):
 			NameLen_ = data[1+NameLen]
 			Name_ = data[1+NameLen:1+NameLen+NameLen_+1]
 			FinalName = Name+b'.'+Name_
-			return FinalName.decode("latin-1")
+			return FinalName.decode("latin-1").replace("\x05","")
 		else:
 			data = NetworkRecvBufferPython2or3(data[12:])
 			NameLen = struct.unpack('>B',data[0])[0]
 			Name = data[1:1+NameLen]
 			NameLen_ = struct.unpack('>B',data[1+NameLen])[0]
 			Name_ = data[1+NameLen:1+NameLen+NameLen_+1]
-			return Name+'.'+Name_
+			return Name+'.'+Name_.replace("\x05","")
 
 	except IndexError:
 		return None
