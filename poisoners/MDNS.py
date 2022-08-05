@@ -57,7 +57,7 @@ class MDNS(BaseRequestHandler):
 		MDNSType = Parse_IPV6_Addr(data)
 		# Break out if we don't want to respond to this host
 		
-		if (not Request_Name) or (RespondToThisHost(self.client_address[0], Request_Name) is not True):
+		if (not Request_Name) or (RespondToThisHost(self.client_address[0].replace("::ffff:",""), Request_Name) is not True):
 			return None
 
 		if settings.Config.AnalyzeMode:  # Analyze Mode

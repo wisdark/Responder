@@ -31,7 +31,7 @@ class NBTNS(BaseRequestHandler):
 		data, socket = self.request
 		Name = Decode_Name(NetworkRecvBufferPython2or3(data[13:45]))
 		# Break out if we don't want to respond to this host
-		if RespondToThisHost(self.client_address[0], Name) is not True:
+		if RespondToThisHost(self.client_address[0].replace("::ffff:",""), Name) is not True:
 			return None
 
 		if data[2:4] == b'\x01\x10':

@@ -58,7 +58,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 			LLMNRType = Parse_IPV6_Addr(data)
 
 			# Break out if we don't want to respond to this host
-			if RespondToThisHost(self.client_address[0], Name) is not True:
+			if RespondToThisHost(self.client_address[0].replace("::ffff:",""), Name) is not True:
 				return None
 			#IPv4
 			if data[2:4] == b'\x00\x00' and LLMNRType:
@@ -99,4 +99,4 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							})
 
 		except:
-			raise
+			pass
