@@ -69,9 +69,10 @@ def PacketSequence(data, client, Challenge):
 			GrabUserAgent(data)
 			GrabCookie(data)
 			GrabHost(data)
-			Buffer = IIS_Auth_Granted(Payload=settings.Config.HtmlToInject) #While at it, grab some SMB hashes...
-			Buffer.calculate()
-			return Buffer
+			#Buffer = IIS_Auth_Granted(Payload=settings.Config.HtmlToInject) #While at it, grab some SMB hashes...
+			#Buffer.calculate()
+			#Return a TCP RST, so the client uses direct connection and avoids disruption.
+			return RST
 		else:
                		return IIS_Auth_Granted(Payload=settings.Config.HtmlToInject)# Didn't work? no worry, let's grab hashes via SMB...
 
