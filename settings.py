@@ -96,8 +96,8 @@ class Settings:
 		self.LDAP_On_Off     = self.toBool(config.get('Responder Core', 'LDAP'))
 		self.DNS_On_Off      = self.toBool(config.get('Responder Core', 'DNS'))
 		self.RDP_On_Off      = self.toBool(config.get('Responder Core', 'RDP'))
-		self.DCERPC_On_Off      = self.toBool(config.get('Responder Core', 'DCERPC'))
-		self.WinRM_On_Off      = self.toBool(config.get('Responder Core', 'WINRM'))
+		self.DCERPC_On_Off   = self.toBool(config.get('Responder Core', 'DCERPC'))
+		self.WinRM_On_Off    = self.toBool(config.get('Responder Core', 'WINRM'))
 		self.Krb_On_Off      = self.toBool(config.get('Responder Core', 'Kerberos'))
 
 		# Db File
@@ -133,9 +133,10 @@ class Settings:
 		self.Bind_To6           = utils.FindLocalIP6(self.Interface, self.OURIP)
 		self.DHCP_DNS           = options.DHCP_DNS
 		self.ExternalIP6        = options.ExternalIP6
+		self.Quiet_Mode			= options.Quiet
 
 		if self.Interface == "ALL":
-                	self.Bind_To_ALL  = True
+			self.Bind_To_ALL  = True
 		else:
 			self.Bind_To_ALL  = False
 		#IPV4

@@ -40,6 +40,7 @@ parser.add_option('-u','--upstream-proxy', action="store",      help="Upstream H
 parser.add_option('-F','--ForceWpadAuth',  action="store_true", help="Force NTLM/Basic authentication on wpad.dat file retrieval. This may cause a login prompt. Default: False", dest="Force_WPAD_Auth", default=False)
 
 parser.add_option('-P','--ProxyAuth',       action="store_true", help="Force NTLM (transparently)/Basic (prompt) authentication for the proxy. WPAD doesn't need to be ON. This option is highly effective. Default: False", dest="ProxyAuth_On_Off", default=False)
+parser.add_option('-Q','--quiet',           action="store_true", help="Tell Responder to be quiet, disables a bunch of printing from the poisoners. Default: False", dest="Quiet", default=False)
 
 parser.add_option('--lm',                  action="store_true", help="Force LM hashing downgrade for Windows XP/2003 and earlier. Default: False", dest="LM_On_Off", default=False)
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
@@ -370,6 +371,9 @@ def main():
 
 		if settings.Config.AnalyzeMode:
 			print(color('[+] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1))
+		if settings.Config.Quiet_Mode:
+			print(color('[+] Responder is in quiet mode. No NBT-NS, LLMNR, MDNS messages will print to screen.', 3, 1))
+			
 
 		if settings.Config.DHCP_On_Off:
 			from poisoners.DHCP import DHCP
