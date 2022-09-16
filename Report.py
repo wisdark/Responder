@@ -61,6 +61,14 @@ def GetResponderCompleteHash(cursor):
      for row in res.fetchall():
          print('{0}'.format(row[0]))
 
+def GetUniqueLookupsIP(cursor):
+     res = cursor.execute("SELECT Poisoner, SentToIp FROM Poisoned WHERE Poisoner in (SELECT DISTINCT UPPER(Poisoner) FROM Poisoned)")
+     for row in res.fetchall():
+         if 'fe80::' in row[1]:
+             pass
+         else: 
+             print('Protocol: {0}, IP: {1}'.format(row[0], row[1]))
+
 def GetUniqueLookups(cursor):
      res = cursor.execute("SELECT * FROM Poisoned WHERE ForName in (SELECT DISTINCT UPPER(ForName) FROM Poisoned) ORDER BY SentToIp, Poisoner")
      for row in res.fetchall():
@@ -99,6 +107,8 @@ print(color("[+] Generating report...\n", code = 3, modifier = 1))
 
 print(color("[+] DHCP Query Poisoned:", code = 2, modifier = 1))
 GetUniqueDHCP(cursor)
+print(color("\n[+] Unique IP using legacy protocols:", code = 2, modifier = 1))
+GetUniqueLookupsIP(cursor)
 print(color("\n[+] Unique lookups ordered by IP:", code = 2, modifier = 1))
 GetUniqueLookups(cursor)
 GetStatisticUniqueLookups(cursor)
