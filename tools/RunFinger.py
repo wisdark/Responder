@@ -34,6 +34,7 @@ parser.add_option('-i','--ip', action="store", help="Target IP address or class 
 parser.add_option('-f','--filename', action="store", help="Target file", dest="Filename", metavar="ips.txt", default=None)
 parser.add_option('-o','--outfile', action="store", help="Output file", dest="OutFilename", metavar="output.txt", default=None)
 parser.add_option('-t','--timeout', action="store", help="Timeout for all connections. Use this option to fine tune Runfinger.", dest="Timeout", type="float", metavar="0.9", default=2)
+parser.add_option('-s','--smbv1', action='store_true', help="Enable smbv1 scan", dest="Smbv1", default=False)
 
 options, args = parser.parse_args()
 
@@ -49,6 +50,7 @@ Outputfile = None if options.OutFilename==None else open(options.OutFilename,"w"
 SMB1 = "True"
 SMB2signing = "False"
 DB = os.path.abspath(os.path.join(os.path.dirname(__file__)))+"/RunFinger.db"
+SCAN_SMBV1 = options.Smbv1
 
 class Packet():
     fields = OrderedDict([
@@ -406,7 +408,7 @@ def handle(data, host):
 ##################
 def ShowSmallResults(Host):
     ConnectAndChoseSMB((Host,445))
-    if SMB1 == "True":
+    if SCAN_SMBV1 and SMB1 == "True":
         try:
             Hostname, DomainJoined = DomainGrab((Host, 445))
             Signing, OsVer, LanManClient = SmbFinger((Host, 445))
