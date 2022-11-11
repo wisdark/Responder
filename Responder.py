@@ -39,7 +39,8 @@ parser.add_option('-w','--wpad',           action="store_true", help="Start the 
 parser.add_option('-u','--upstream-proxy', action="store",      help="Upstream HTTP proxy used by the rogue WPAD Proxy for outgoing requests (format: host:port)", dest="Upstream_Proxy", default=None)
 parser.add_option('-F','--ForceWpadAuth',  action="store_true", help="Force NTLM/Basic authentication on wpad.dat file retrieval. This may cause a login prompt. Default: False", dest="Force_WPAD_Auth", default=False)
 
-parser.add_option('-P','--ProxyAuth',       action="store_true", help="Force NTLM (transparently)/Basic (prompt) authentication for the proxy. WPAD doesn't need to be ON. This option is highly effective when combined with -r. Default: False", dest="ProxyAuth_On_Off", default=False)
+parser.add_option('-P','--ProxyAuth',       action="store_true", help="Force NTLM (transparently)/Basic (prompt) authentication for the proxy. WPAD doesn't need to be ON. This option is highly effective. Default: False", dest="ProxyAuth_On_Off", default=False)
+parser.add_option('-Q','--quiet',           action="store_true", help="Tell Responder to be quiet, disables a bunch of printing from the poisoners. Default: False", dest="Quiet", default=False)
 
 parser.add_option('--lm',                  action="store_true", help="Force LM hashing downgrade for Windows XP/2003 and earlier. Default: False", dest="LM_On_Off", default=False)
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
@@ -250,17 +251,19 @@ def serve_thread_SSL(host, port, handler):
 
 		cert = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLCert)
 		key =  os.path.join(settings.Config.ResponderPATH, settings.Config.SSLKey)
-
+		context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+		context.load_cert_chain(cert, key)
 		if OsInterfaceIsSupported():
 			server = ThreadingTCPServer(('', port), handler)
-			server.socket = ssl.wrap_socket(server.socket, certfile=cert, keyfile=key, server_side=True)
+			server.socket = context.wrap_socket(server.socket, server_side=True)
 			server.serve_forever()
 		else:
 			server = ThreadingTCPServer(('', port), handler)
-			server.socket = ssl.wrap_socket(server.socket, certfile=cert, keyfile=key, server_side=True)
+			server.socket = context.wrap_socket(server.socket, server_side=True)
 			server.serve_forever()
 	except:
 		print(color("[!] ", 1, 1) + "Error starting SSL server on port " + str(port) + ", check permissions or other servers running.")
+
 
 def main():
 	try:
@@ -362,12 +365,19 @@ def main():
 			threads.append(Thread(target=serve_thread_udp, args=('', 53, DNS,)))
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 53, DNSTCP,)))
 
+		if settings.Config.SNMP_On_Off:
+			from servers.SNMP import SNMP
+			threads.append(Thread(target=serve_thread_udp, args=('', 161, SNMP,)))
+
 		for thread in threads:
-			thread.setDaemon(True)
+			thread.daemon = True
 			thread.start()
 
 		if settings.Config.AnalyzeMode:
 			print(color('[+] Responder is in analyze mode. No NBT-NS, LLMNR, MDNS requests will be poisoned.', 3, 1))
+		if settings.Config.Quiet_Mode:
+			print(color('[+] Responder is in quiet mode. No NBT-NS, LLMNR, MDNS messages will print to screen.', 3, 1))
+			
 
 		if settings.Config.DHCP_On_Off:
 			from poisoners.DHCP import DHCP

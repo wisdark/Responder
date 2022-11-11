@@ -173,7 +173,7 @@ def ParseCLDAPPacket(data, client, Challenge):
 		
 		elif Operation == b'\x63':
 			Buffer = ParseSearch(data)
-			print(text('[CLDAP] Sent CLDAP pong to %s.'% client))
+			print(text('[CLDAP] Sent CLDAP pong to %s.'% client.replace("::ffff:","")))
 			return Buffer
 
 		elif settings.Config.Verbose:

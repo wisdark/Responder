@@ -317,7 +317,7 @@ def SaveToDb(result):
 	for k in [ 'module', 'type', 'client', 'hostname', 'user', 'cleartext', 'hash', 'fullhash' ]:
 		if not k in result:
 			result[k] = ''
-
+	result['client'] = result['client'].replace("::ffff:","")
 	if len(result['user']) < 2:
 		print(color('[*] Skipping one character username: %s' % result['user'], 3, 1))
 		text("[*] Skipping one character username: %s" % result['user'])
@@ -337,16 +337,10 @@ def SaveToDb(result):
 	logfile = os.path.join(settings.Config.ResponderPATH, 'logs', fname)
 
 	if not count:
-		with open(logfile,"a") as outf:
-			if len(result['cleartext']):  # If we obtained cleartext credentials, write them to file
-				outf.write('%s:%s\n' % (result['user'].encode('utf8', 'replace'), result['cleartext'].encode('utf8', 'replace')))
-			else:  # Otherwise, write JtR-style hash string to file
-				outf.write(result['fullhash'] + '\n')#.encode('utf8', 'replace') + '\n')
-
 		cursor.execute("INSERT INTO responder VALUES(datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)", (result['module'], result['type'], result['client'], result['hostname'], result['user'], result['cleartext'], result['hash'], result['fullhash']))
 		cursor.commit()
 
-	if settings.Config.CaptureMultipleHashFromSameHost:
+	if not count or settings.Config.CaptureMultipleHashFromSameHost:
 		with open(logfile,"a") as outf:
 			if len(result['cleartext']):  # If we obtained cleartext credentials, write them to file
 				outf.write('%s:%s\n' % (result['user'].encode('utf8', 'replace'), result['cleartext'].encode('utf8', 'replace')))
@@ -393,7 +387,7 @@ def SavePoisonersToDb(result):
 	for k in [ 'Poisoner', 'SentToIp', 'ForName', 'AnalyzeMode' ]:
 		if not k in result:
 			result[k] = ''
-
+	result['SentToIp'] = result['SentToIp'].replace("::ffff:","")
 	cursor = sqlite3.connect(settings.Config.DatabaseFile)
 	cursor.text_factory = sqlite3.Binary  # We add a text factory to support different charsets
 	res = cursor.execute("SELECT COUNT(*) AS count FROM Poisoned WHERE Poisoner=? AND SentToIp=? AND ForName=? AND AnalyzeMode=?", (result['Poisoner'], result['SentToIp'], result['ForName'], result['AnalyzeMode']))
@@ -476,6 +470,10 @@ def banner():
 	print(banner)
 	print("\n           \033[1;33mNBT-NS, LLMNR & MDNS %s\033[0m" % settings.__version__)
 	print('')
+	print("  To support this project:")
+	print("  Patreon -> https://www.patreon.com/PythonResponder")
+	print("  Paypal  -> https://paypal.me/PythonResponder")
+	print('')
 	print("  Author: Laurent Gaffie (laurent.gaffie@gmail.com)")
 	print("  To kill this script hit CTRL-C")
 	print('')
@@ -511,6 +509,7 @@ def StartupMessage():
 	print('    %-27s' % "RDP server" + (enabled if settings.Config.RDP_On_Off else disabled))
 	print('    %-27s' % "DCE-RPC server" + (enabled if settings.Config.DCERPC_On_Off else disabled))
 	print('    %-27s' % "WinRM server" + (enabled if settings.Config.WinRM_On_Off else disabled))
+	print('    %-27s' % "SNMP server" + (enabled if settings.Config.SNMP_On_Off else disabled))
 	print('')
 
 	print(color("[+] ", 2, 1) + "HTTP Options:")

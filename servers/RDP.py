@@ -98,6 +98,11 @@ class RDP(BaseRequestHandler):
 			self.request.settimeout(30)
 			Challenge = RandomChallenge()
 
+			cert = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLCert)
+			key =  os.path.join(settings.Config.ResponderPATH, settings.Config.SSLKey)
+			context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+			context.load_cert_chain(cert, key)
+
 			if data[11:12] == b'\x01':
 				x =  X224(Data=RDPNEGOAnswer())
 				x.calculate()
@@ -105,7 +110,7 @@ class RDP(BaseRequestHandler):
 				h.calculate()
 				buffer1 = str(h)
 				self.request.send(NetworkSendBufferPython2or3(buffer1))
-				SSLsock = ssl.wrap_socket(self.request, certfile=cert, keyfile=key, ssl_version=ssl.PROTOCOL_TLS_SERVER,server_side=True)
+				SSLsock = context.wrap_socket(self.request, server_side=True)
 				SSLsock.settimeout(30)
 				data = SSLsock.read(8092)
 				if FindNTLMNegoStep(data) == b'\x01\x00\x00\x00':
@@ -125,8 +130,7 @@ class RDP(BaseRequestHandler):
 				buffer1 = str(h)
 				self.request.send(NetworkSendBufferPython2or3(buffer1))
 				data = self.request.recv(8092)
-
-				SSLsock = ssl.wrap_socket(self.request, certfile=cert, keyfile=key, ssl_version=ssl.PROTOCOL_TLS,server_side=True)
+				SSLsock = context.wrap_socket(self.request, server_side=True)
 				data = SSLsock.read(8092)
 				if FindNTLMNegoStep(data) == b'\x01\x00\x00\x00':
 					x = RDPNTLMChallengeAnswer(NTLMSSPNtServerChallenge=NetworkRecvBufferPython2or3(Challenge))

@@ -206,7 +206,6 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
 						self.request.send(Buffer)
 						data = self.request.recv(1024)
 					except:
-						raise
 						pass
 
                                 ##Negotiate proto answer SMBv2.
