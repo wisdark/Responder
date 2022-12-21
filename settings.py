@@ -284,7 +284,7 @@ class Settings:
 			pass
 		else:
 			#If it's the first time, generate SSL certs for this Responder session and send openssl output to /dev/null
-			Certs = os.system("./certs/gen-self-signed-cert.sh >/dev/null 2>&1")
+			Certs = os.system(self.ResponderPATH+"/certs/gen-self-signed-cert.sh >/dev/null 2>&1")
 		
 		try:
 			NetworkCard = subprocess.check_output(["ifconfig", "-a"])
