@@ -52,6 +52,7 @@ class Settings:
 					tab = l.split(':')
 					x = {}
 					i = 0
+					xaddr = ''
 					for byte in tab:
 						if byte == '':
 							byte = '0'
@@ -70,7 +71,10 @@ class Settings:
 										for f in range(x[10], x[11]+1):
 											for g in range(x[12], x[13]+1):
 												for h in range(x[14], x[15]+1):
-													ret.append('%x:%x:%x:%x:%x:%x:%x:%x' % (a, b, c, d, e, f, g, h))
+													xaddr = ('%x:%x:%x:%x:%x:%x:%x:%x' % (a, b, c, d, e, f, g, h))
+													xaddr = re.sub('(^|:)0{1,4}', ':', xaddr, count = 7)#Compresses expanded IPv6 address
+													xaddr = re.sub(':{3,7}', '::', xaddr, count = 7)
+													ret.append(xaddr.upper())
 				else:				
 					tab = l.split('.')
 					x = {}
