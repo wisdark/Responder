@@ -74,7 +74,7 @@ class Settings:
 													xaddr = ('%x:%x:%x:%x:%x:%x:%x:%x' % (a, b, c, d, e, f, g, h))
 													xaddr = re.sub('(^|:)0{1,4}', ':', xaddr, count = 7)#Compresses expanded IPv6 address
 													xaddr = re.sub(':{3,7}', '::', xaddr, count = 7)
-													ret.append(xaddr.upper())
+													ret.append(xaddr)
 				else:				
 					tab = l.split('.')
 					x = {}
