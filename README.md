@@ -176,10 +176,6 @@ Paypal:
 
 https://paypal.me/PythonResponder
 
-Patreon:
-
-https://www.patreon.com/PythonResponder
-
 
 ## Acknowledgments ##
 
