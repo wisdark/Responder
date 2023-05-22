@@ -42,25 +42,56 @@ class Settings:
 		return str.upper() == 'ON'
 
 	def ExpandIPRanges(self):
-		def expand_ranges(lst):
+		def expand_ranges(lst):	
 			ret = []
 			for l in lst:
-				tab = l.split('.')
-				x = {}
-				i = 0
-				for byte in tab:
-					if '-' not in byte:
-						x[i] = x[i+1] = int(byte)
-					else:
-						b = byte.split('-')
-						x[i] = int(b[0])
-						x[i+1] = int(b[1])
-					i += 2
-				for a in range(x[0], x[1]+1):
-					for b in range(x[2], x[3]+1):
-						for c in range(x[4], x[5]+1):
-							for d in range(x[6], x[7]+1):
-								ret.append('%d.%d.%d.%d' % (a, b, c, d))
+				if ':' in l: #For IPv6 addresses, similar to the IPv4 version below but hex and pads :'s to expand shortend addresses 
+					while l.count(':') < 7: 
+						pos = l.find('::')
+						l = l[:pos] + ':' + l[pos:]
+					tab = l.split(':')
+					x = {}
+					i = 0
+					xaddr = ''
+					for byte in tab:
+						if byte == '':
+							byte = '0'
+						if '-' not in byte:
+							x[i] = x[i+1] = int(byte, base=16)
+						else:
+							b = byte.split('-')
+							x[i] = int(b[0], base=16)
+							x[i+1] = int(b[1], base=16)
+						i += 2
+					for a in range(x[0], x[1]+1):
+						for b in range(x[2], x[3]+1):
+							for c in range(x[4], x[5]+1):
+								for d in range(x[6], x[7]+1):
+									for e in range(x[8], x[9]+1):
+										for f in range(x[10], x[11]+1):
+											for g in range(x[12], x[13]+1):
+												for h in range(x[14], x[15]+1):
+													xaddr = ('%x:%x:%x:%x:%x:%x:%x:%x' % (a, b, c, d, e, f, g, h))
+													xaddr = re.sub('(^|:)0{1,4}', ':', xaddr, count = 7)#Compresses expanded IPv6 address
+													xaddr = re.sub(':{3,7}', '::', xaddr, count = 7)
+													ret.append(xaddr)
+				else:				
+					tab = l.split('.')
+					x = {}
+					i = 0
+					for byte in tab:
+						if '-' not in byte:
+							x[i] = x[i+1] = int(byte)
+						else:
+							b = byte.split('-')
+							x[i] = int(b[0])
+							x[i+1] = int(b[1])
+						i += 2
+					for a in range(x[0], x[1]+1):
+						for b in range(x[2], x[3]+1):
+							for c in range(x[4], x[5]+1):
+								for d in range(x[6], x[7]+1):
+									ret.append('%d.%d.%d.%d' % (a, b, c, d))
 			return ret
 
 		self.RespondTo = expand_ranges(self.RespondTo)
