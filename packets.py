@@ -497,7 +497,7 @@ class IIS_Basic_401_Ans(Packet):
 class WPADScript(Packet):
 	fields = OrderedDict([
 		("Code",          "HTTP/1.1 200 OK\r\n"),
-		("ServerTlype",    "Server: Microsoft-IIS/7.5\r\n"),
+		("ServerType",    "Server: Microsoft-IIS/7.5\r\n"),
 		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
 		("Type",          "Content-Type: application/x-ns-proxy-autoconfig\r\n"),
 		("ContentLen",    "Content-Length: "),
