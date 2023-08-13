@@ -800,6 +800,24 @@ class IMAPCapabilityEnd(Packet):
 		("CRLF",    "\r\n"),
 	])
 
+##### MQTT Packets #####
+class MQTTv3v4ResponsePacket(Packet):
+	fields = OrderedDict([
+		("Type",	"\x20"),
+		("Len", 	"\x02"),
+		("Session",	"\x00"),
+		("Code", 	"\x04"),
+	])
+
+class MQTTv5ResponsePacket(Packet):
+	fields = OrderedDict([
+		("Type",	"\x20"),
+		("Len", 	"\x03"),
+		("Session",	"\x00"),
+		("Code", 	"\x86"),
+		("Prop", 	"\x00"),
+	])
+
 ##### POP3 Packets #####
 class POPOKPacket(Packet):
 	fields = OrderedDict([

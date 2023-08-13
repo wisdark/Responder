@@ -351,6 +351,10 @@ def main():
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 389, LDAP,)))
 			threads.append(Thread(target=serve_thread_udp, args=('', 389, CLDAP,)))
 
+		if settings.Config.MQTT_On_Off:
+			from servers.MQTT import MQTT
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 1883, MQTT,)))
+
 		if settings.Config.SMTP_On_Off:
 			from servers.SMTP import ESMTP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 25,  ESMTP,)))
