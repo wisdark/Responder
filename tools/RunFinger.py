@@ -106,7 +106,7 @@ def ParseNegotiateSMB2Ans(data):
 
 def SMB2SigningMandatory(data):
 	global SMB2signing
-	if data[70] == "\x03":
+	if data[70:71] == b"\x03":
 		SMB2signing = "True"
 	else:
 		SMB2signing = "False"
@@ -201,7 +201,7 @@ def IsDCVuln(t, host):
 #####################
 
 def IsSigningEnabled(data):
-    if data[39] == "\x0f":
+    if data[39:40] == b"\x0f":
         return 'True'
     else:
         return 'False'
@@ -364,7 +364,7 @@ def ConnectAndChoseSMB(host):
 		return False
 
 def handle(data, host):
-	if data[28] == "\x00":
+	if data[28:29] == b"\x00":
 		a =  SMBv2Head()
 		a.calculate()
 		b = SMBv2Negotiate()
@@ -373,7 +373,7 @@ def handle(data, host):
 		buffer0 = longueur(packet0)+packet0
 		return buffer0
 
-	if data[28] == "\x01":
+	if data[28:29] == b"\x01":
 		global Bootime
 		SMB2SigningMandatory(data)
 		Bootime = IsDCVuln(GetBootTime(data[116:124]), host[0])
@@ -385,7 +385,7 @@ def handle(data, host):
 		buffer0 = longueur(packet0)+packet0
 		return buffer0
 
-	if data[28] == "\x02":
+	if data[28:29] == b"\x02":
 		ParseSMBNTLM2Exchange(data, host[0], Bootime, SMB2signing) 
 
 ##################
