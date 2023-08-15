@@ -178,7 +178,7 @@ def IsNT4ClearTxt(data, client):
 		WordCount = data[HeadLen]
 		ChainedCmdOffset = data[HeadLen+1]
 
-		if ChainedCmdOffset == "\x75":
+		if ChainedCmdOffset == "\x75" or ChainedCmdOffset == 117:
 			PassLen = struct.unpack('<H',data[HeadLen+15:HeadLen+17])[0]
 
 			if PassLen > 2:
