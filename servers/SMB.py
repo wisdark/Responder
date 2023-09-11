@@ -178,7 +178,7 @@ def IsNT4ClearTxt(data, client):
 		WordCount = data[HeadLen]
 		ChainedCmdOffset = data[HeadLen+1]
 
-		if ChainedCmdOffset == "\x75":
+		if ChainedCmdOffset == "\x75" or ChainedCmdOffset == 117:
 			PassLen = struct.unpack('<H',data[HeadLen+15:HeadLen+17])[0]
 
 			if PassLen > 2:
@@ -200,7 +200,7 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
 				if not data:
 					break
 
-				if data[0] == "\x81":  #session request 139
+				if data[0:1] == b"\x81":  #session request 139
 					Buffer = "\x82\x00\x00\x00"
 					try:
 						self.request.send(Buffer)
@@ -335,7 +335,7 @@ class SMB1LM(BaseRequestHandler):  # SMB Server class, old version
 			self.request.settimeout(1)
 			data = self.request.recv(1024)
 			Challenge = RandomChallenge()
-			if data[0] == b"\x81":  #session request 139
+			if data[0:1] == b"\x81":  #session request 139
 				Buffer = "\x82\x00\x00\x00"
 				self.request.send(NetworkSendBufferPython2or3(Buffer))
 				data = self.request.recv(1024)
