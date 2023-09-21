@@ -3,11 +3,10 @@ try:
     from UserDict import DictMixin
 except ImportError:
     from collections import UserDict
-    # https://stackoverflow.com/questions/70870041/cannot-import-name-mutablemapping-from-collections
-    if sys.version_info[:2] >= (3, 8):
-        from collections.abc import MutableMapping
-    else:
-        from collections import MutableMapping
+    try:
+        from collections import MutableMapping as DictMixin
+    except ImportError:
+        from collections.abc import MutableMapping as DictMixin
 
 class OrderedDict(dict, DictMixin):
 
