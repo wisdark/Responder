@@ -224,8 +224,8 @@ def PacketSequence(data, client, Challenge):
 			'module': 'HTTP', 
 			'type': 'Basic', 
 			'client': client, 
-			'user': ClearText_Auth.decode('latin-1').split(':')[0], 
-			'cleartext': ClearText_Auth.decode('latin-1').split(':')[1], 
+			'user': ClearText_Auth.decode('latin-1').split(':', maxsplit=1)[0], 
+			'cleartext': ClearText_Auth.decode('latin-1').split(':', maxsplit=1)[1], 
 			})
 
 		if settings.Config.Force_WPAD_Auth and WPAD_Custom:
