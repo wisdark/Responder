@@ -201,5 +201,5 @@ class MQTT(BaseRequestHandler):
 
 
 		except Exception:
-			raise
+			self.request.close()
 			pass
