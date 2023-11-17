@@ -65,7 +65,7 @@ class ESMTP(BaseRequestHandler):
 							data = self.request.recv(1024)
 
 							if data:
-								try: Password = b64decode(data)
+								try: Password = b64decode(data).decode('latin-1')
 								except: Password = data
 
 						SaveToDb({
