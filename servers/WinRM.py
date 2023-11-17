@@ -175,6 +175,6 @@ class WinRM(BaseRequestHandler):
 					self.request.send(NetworkSendBufferPython2or3(Buffer))
 		
 		except:
-			raise
+			self.request.close()
 			pass
 			
