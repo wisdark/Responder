@@ -412,7 +412,6 @@ def ShowSmallResults(Host):
 				'MSSQL': SQL
 				})
 		except:
-			raise
 			return False
 
 
