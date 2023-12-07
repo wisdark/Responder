@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # This file is part of Responder, a network take-over set of tools
 # created and maintained by Laurent Gaffie.
 # email: laurent.gaffie@gmail.com
@@ -364,7 +364,7 @@ def ConnectAndChoseSMB(host):
 		return False
 
 def handle(data, host):
-	if data[28:29] == b"\x00":
+	if data[28:29] == "\x00":
 		a =  SMBv2Head()
 		a.calculate()
 		b = SMBv2Negotiate()
@@ -373,7 +373,7 @@ def handle(data, host):
 		buffer0 = longueur(packet0)+packet0
 		return buffer0
 
-	if data[28:29] == b"\x01":
+	if data[28:29] == "\x01":
 		global Bootime
 		SMB2SigningMandatory(data)
 		Bootime = IsDCVuln(GetBootTime(data[116:124]), host[0])
@@ -385,7 +385,7 @@ def handle(data, host):
 		buffer0 = longueur(packet0)+packet0
 		return buffer0
 
-	if data[28:29] == b"\x02":
+	if data[28:29] == "\x02":
 		ParseSMBNTLM2Exchange(data, host[0], Bootime, SMB2signing) 
 
 ##################
@@ -412,6 +412,7 @@ def ShowSmallResults(Host):
 				'MSSQL': SQL
 				})
 		except:
+			raise
 			return False
 
 
