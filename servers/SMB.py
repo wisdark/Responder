@@ -209,7 +209,7 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
 						pass
 
                                 ##Negotiate proto answer SMBv2.
-				if data[8:10] == b"\x72\x00" and re.search(b"SMB 2.\?\?\?", data):
+				if data[8:10] == b"\x72\x00" and re.search(rb"SMB 2.\?\?\?", data):
 					head = SMB2Header(CreditCharge="\x00\x00",Credits="\x01\x00")
 					t = SMB2NegoAns()
 					t.calculate()
@@ -247,7 +247,7 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
 					data = self.request.recv(1024)
 
                                 # Negotiate Protocol Response smbv1
-				if data[8:10] == b'\x72\x00' and data[4:5] == b'\xff' and re.search(b'SMB 2.\?\?\?', data) == None:
+				if data[8:10] == b'\x72\x00' and data[4:5] == b'\xff' and re.search(rb'SMB 2.\?\?\?', data) == None:
 					Header = SMBHeader(cmd="\x72",flag1="\x88", flag2="\x01\xc8", pid=pidcalc(NetworkRecvBufferPython2or3(data)),mid=midcalc(NetworkRecvBufferPython2or3(data)))
 					Body = SMBNegoKerbAns(Dialect=Parse_Nego_Dialect(NetworkRecvBufferPython2or3(data)))
 					Body.calculate()
