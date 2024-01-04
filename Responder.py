@@ -285,9 +285,11 @@ def main():
 		threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
 		threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
 
+		#// Vintage Responder BOWSER module, now disabled by default. 
+		#// Generate to much noise & easily detectable on the network when in analyze mode.
 		# Load Browser Listener
-		from servers.Browser import Browser
-		threads.append(Thread(target=serve_thread_udp_broadcast, args=('', 138,  Browser,)))
+		#from servers.Browser import Browser
+		#threads.append(Thread(target=serve_thread_udp_broadcast, args=('', 138,  Browser,)))
 
 		if settings.Config.HTTP_On_Off:
 			from servers.HTTP import HTTP
