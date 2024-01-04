@@ -96,26 +96,9 @@ def GrabReferer(data, host):
 		return Referer
 	return False
 
-def SpotFirefox(data):
-	UserAgent = re.findall(r'(?<=User-Agent: )[^\r]*', data)
-	if UserAgent:
-		print(text("[HTTP] %s" % color("User-Agent        : "+UserAgent[0], 2)))
-		IsFirefox = re.search('Firefox', UserAgent[0])
-		if IsFirefox:
-			print(color("[WARNING]: Mozilla doesn't switch to fail-over proxies (as it should) when one's failing.", 1))
-			print(color("[WARNING]: The current WPAD script will cause disruption on this host. Sending a dummy wpad script (DIRECT connect)", 1))
-			return True
-		else:
-			return False
-
 def WpadCustom(data, client):
 	Wpad = re.search(r'(/wpad.dat|/*\.pac)', data)
-	if Wpad and SpotFirefox(data):
-		Buffer = WPADScript(Payload="function FindProxyForURL(url, host){return 'DIRECT';}")
-		Buffer.calculate()
-		return str(Buffer)
-
-	if Wpad and SpotFirefox(data) == False:
+	if Wpad:
 		Buffer = WPADScript(Payload=settings.Config.WPAD_Script)
 		Buffer.calculate()
 		return str(Buffer)

@@ -569,9 +569,9 @@ background-color:#555555;}
 class WPADScript(Packet):
 	fields = OrderedDict([
 		("Code",          "HTTP/1.1 200 OK\r\n"),
-		("ServerType",    "Server: Microsoft-IIS/10.0\r\n"),
-		("Date",          "Date: "+HTTPCurrentDate()+"\r\n"),
 		("Type",          "Content-Type: application/x-ns-proxy-autoconfig\r\n"),
+		("Cache",         "Pragma: no-cache\r\n"),
+		("Server",        "Server: BigIP\r\n"),
 		("ContentLen",    "Content-Length: "),
 		("ActualLen",     "76"),
 		("CRLF",          "\r\n\r\n"),
