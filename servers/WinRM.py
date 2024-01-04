@@ -180,6 +180,5 @@ class WinRM(BaseRequestHandler):
 		
 		except:
 			self.request.close()
-			raise
 			pass
 			
