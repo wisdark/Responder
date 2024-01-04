@@ -215,7 +215,7 @@ class DNS_SRV_Ans(Packet):
 	def calculate(self,data):
 		self.fields["Tid"] = data[0:2]
 		DNSName = ''.join(data[12:].split('\x00')[:1])
-		SplitFQDN =  re.split('\W+', DNSName) # split the ldap.tcp.blah.blah.blah.domain.tld
+		SplitFQDN =  re.split(r'\W+', DNSName) # split the ldap.tcp.blah.blah.blah.domain.tld
 
 		#What's the question? we need it first to calc all other len.
 		self.fields["QuestionName"] = DNSName
