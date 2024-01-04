@@ -349,6 +349,7 @@ def main():
 		if settings.Config.LDAP_On_Off:
 			from servers.LDAP import LDAP, CLDAP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 389, LDAP,)))
+			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 636, LDAP,)))
 			threads.append(Thread(target=serve_thread_udp, args=('', 389, CLDAP,)))
 
 		if settings.Config.MQTT_On_Off:
