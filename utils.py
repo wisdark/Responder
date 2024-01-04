@@ -471,7 +471,7 @@ def banner():
 	print("\n           \033[1;33mNBT-NS, LLMNR & MDNS %s\033[0m" % settings.__version__)
 	print('')
 	print("  To support this project:")
-	print("  Patreon -> https://www.patreon.com/PythonResponder")
+	print("  Github -> https://github.com/sponsors/lgandx")
 	print("  Paypal  -> https://paypal.me/PythonResponder")
 	print('')
 	print("  Author: Laurent Gaffie (laurent.gaffie@gmail.com)")
