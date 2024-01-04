@@ -125,12 +125,16 @@ def PacketSequence(data, client, Challenge):
 		return Buffer
 	else:
 		if settings.Config.Basic:
-			Response = IIS_Basic_401_Ans()
+			r = IIS_Basic_401_Ans()
+			r.calculate()
+			Response = r
 			if settings.Config.Verbose:
 				print(text("[WinRM] Sending BASIC authentication request to %s" % client.replace("::ffff:","")))
 
 		else:
-			Response = IIS_Auth_401_Ans()
+			r = IIS_Auth_401_Ans()
+			r.calculate()
+			Response = r
 			if settings.Config.Verbose:
 				print(text("[WinRM] Sending NTLM authentication request to %s" % client.replace("::ffff:","")))
 
@@ -176,5 +180,6 @@ class WinRM(BaseRequestHandler):
 		
 		except:
 			self.request.close()
+			raise
 			pass
 			
