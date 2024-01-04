@@ -54,6 +54,10 @@ elif options.OURIP == None and IsOsX() == True:
     print("\n\033[1m\033[31mOSX detected, -i mandatory option is missing\033[0m\n")
     parser.print_help()
     exit(-1)
+    
+elif options.ProxyAuth_On_Off and options.WPAD_On_Off:
+    print("\n\033[1m\033[31mYou cannot use WPAD server and Proxy_Auth server at the same time, choose one of them.\033[0m\n")
+    exit(-1)
 
 settings.init()
 settings.Config.populate(options)
@@ -312,7 +316,7 @@ def main():
 
 		if settings.Config.WPAD_On_Off:
 			from servers.HTTP_Proxy import HTTP_Proxy
-			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3141, HTTP_Proxy,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3128, HTTP_Proxy,)))
 
 		if settings.Config.ProxyAuth_On_Off:
 		        from servers.Proxy_Auth import Proxy_Auth

@@ -239,7 +239,11 @@ class Settings:
 			self.HtmlToInject = ""# Let users set it up themself in Responder.conf. "<img src='file://///"+self.Bind_To+"/pictures/logo.jpg' alt='Loading' height='1' width='1'>"
 
 		if len(self.WPAD_Script) == 0:
-			self.WPAD_Script = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; return "PROXY '+self.Bind_To+':3128; PROXY '+self.Bind_To+':3141; DIRECT";}'
+			if self.WPAD_On_Off:
+				self.WPAD_Script = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; return "PROXY '+self.Bind_To+':3128; DIRECT";}'
+				
+			if self.ProxyAuth_On_Off:
+				self.WPAD_Script = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1") || isPlainHostName(host)) return "DIRECT"; return "PROXY '+self.Bind_To+':3128; DIRECT";}'
 
 		if self.Serve_Exe == True:	
 			if not os.path.exists(self.Html_Filename):
