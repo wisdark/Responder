@@ -332,7 +332,7 @@ class Settings:
 				NetworkCard = "Error fetching Network Interfaces:", ex
 				pass
 		try:
-			DNS = subprocess.check_output(["cat", "/etc/resolv.conf"])
+			DNS = subprocess.check_output(["resolvectl", "status"])
 		except subprocess.CalledProcessError as ex:
 			DNS = "Error fetching DNS configuration:", ex
 			pass
@@ -348,7 +348,7 @@ class Settings:
 		Message = "%s\nCurrent environment is:\nNetwork Config:\n%s\nDNS Settings:\n%s\nRouting info:\n%s\n\n"%(utils.HTTPCurrentDate(), NetworkCard.decode('latin-1'),DNS.decode('latin-1'),RoutingInfo.decode('latin-1'))
 		try:
 			utils.DumpConfig(self.ResponderConfigDump, Message)
-			utils.DumpConfig(self.ResponderConfigDump,str(self))
+			#utils.DumpConfig(self.ResponderConfigDump,str(self))
 		except AttributeError as ex:
 			print("Missing Module:", ex)
 			pass
