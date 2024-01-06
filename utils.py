@@ -221,10 +221,12 @@ def FindLocalIP(Iface, OURIP):
 
 def Probe_IPv6_socket():
 	"""Return true is IPv6 sockets are really supported, and False when IPv6 is not supported."""
+	if not socket.has_ipv6:
+		return False
 	try:
 		with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
 			s.bind(("::1", 0))
-			return True
+		return True
 	except:
 		return False
 		
