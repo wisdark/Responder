@@ -23,6 +23,9 @@ else:
 from packets import MDNS_Ans, MDNS6_Ans
 from utils import *
 
+#Should we answer to those AAAA?
+Have_IPv6 = settings.Config.IPv6
+
 def Parse_MDNS_Name(data):
 	try:
 		if (sys.version_info > (3, 0)):
@@ -82,7 +85,7 @@ class MDNS(BaseRequestHandler):
 						'AnalyzeMode': '0',
 						})
 
-			elif MDNSType == 'IPv6':  # Poisoning Mode
+			elif MDNSType == 'IPv6'and Have_IPv6:  # Poisoning Mode
 				Poisoned_Name = Poisoned_MDNS_Name(data)
 				Buffer = MDNS6_Ans(AnswerName = Poisoned_Name)
 				Buffer.calculate()

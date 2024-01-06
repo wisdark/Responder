@@ -219,7 +219,15 @@ def FindLocalIP(Iface, OURIP):
 		print(color("[!] Error: %s: Interface not found" % Iface, 1))
 		sys.exit(-1)
 
-
+def Probe_IPv6_socket():
+	"""Return true is IPv6 sockets are really supported, and False when IPv6 is not supported."""
+	try:
+		with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+			s.bind(("::1", 0))
+			return True
+	except:
+		return False
+		
 def FindLocalIP6(Iface, OURIP):
 	if Iface == 'ALL':
 		return '::'
@@ -234,7 +242,6 @@ def FindLocalIP6(Iface, OURIP):
 				s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
 				s.connect((randIP+':80', 1))
 				IP = s.getsockname()[0]
-				print('IP is: %s'%IP)
 				return IP
 			except:
 				try:

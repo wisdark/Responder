@@ -22,6 +22,9 @@ if (sys.version_info > (3, 0)):
 else:
 	from SocketServer import BaseRequestHandler
 
+#Should we answer to those AAAA?
+Have_IPv6 = settings.Config.IPv6
+
 def Parse_LLMNR_Name(data):
 	import codecs
 	NameLen = data[12]
@@ -86,7 +89,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							'AnalyzeMode': '0',
 							})
 
-				elif LLMNRType == 'IPv6':
+				elif LLMNRType == 'IPv6' and Have_IPv6:
 					Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)

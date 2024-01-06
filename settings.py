@@ -168,6 +168,9 @@ class Settings:
 		self.ExternalIP6        = options.ExternalIP6
 		self.Quiet_Mode			= options.Quiet
 
+		#Do we have IPv6 for real?
+		self.IPv6 = utils.Probe_IPv6_socket()
+			
 		if self.Interface == "ALL":
 			self.Bind_To_ALL  = True
 		else:
