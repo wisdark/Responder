@@ -335,10 +335,12 @@ class Settings:
 				NetworkCard = "Error fetching Network Interfaces:", ex
 				pass
 		try:
-			DNS = subprocess.check_output(["resolvectl", "status"])
-		except subprocess.CalledProcessError as ex:
-			DNS = "Error fetching DNS configuration:", ex
-			pass
+			p = subprocess.Popen('resolvectl', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+			DNS = p.stdout.read()
+		except:
+			p = subprocess.Popen(['cat', '/etc/resolv.conf'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+			DNS = p.stdout.read()
+
 		try:
 			RoutingInfo = subprocess.check_output(["netstat", "-rn"])
 		except:
