@@ -168,6 +168,18 @@ class Settings:
 		self.ExternalIP6        = options.ExternalIP6
 		self.Quiet_Mode			= options.Quiet
 
+		# TTL blacklist. Known to be detected by SOC / XDR
+		TTL_blacklist = [b"\x00\x00\x00\x1e", b"\x00\x00\x00\x78", b"\x00\x00\x00\xa5"]
+		# Random TTL
+		if options.TTL is None:
+			TTL = bytes.fromhex("000000"+format(random.randint(10,90),'x'))
+			if TTL in TTL_blacklist:
+				TTL = int.from_bytes(TTL, "big")+1
+				TTL = int.to_bytes(TTL, 4)
+			self.TTL = TTL.decode('utf-8')
+		else:
+			self.TTL = bytes.fromhex("000000"+options.TTL).decode('utf-8')
+
 		#Do we have IPv6 for real?
 		self.IPv6 = utils.Probe_IPv6_socket()
 			
