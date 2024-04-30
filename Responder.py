@@ -294,16 +294,21 @@ def main():
 		if (sys.version_info < (3, 0)):
 			print(color('\n\n[-]', 3, 1) + " Still using python 2? :(")
 		print(color('\n[+]', 2, 1) + " Listening for events...\n")
-			
+
 		threads = []
 
 		# Load (M)DNS, NBNS and LLMNR Poisoners
-		from poisoners.LLMNR import LLMNR
-		from poisoners.NBTNS import NBTNS
-		from poisoners.MDNS import MDNS
-		threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
-		threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
-		threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+		if settings.Config.LLMNR_On_Off:
+		    from poisoners.LLMNR import LLMNR
+		    threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
+
+		if settings.Config.NBTNS_On_Off:
+		    from poisoners.NBTNS import NBTNS
+		    threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+
+		if settings.Config.MDNS_On_Off:
+		    from poisoners.MDNS import MDNS
+		    threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
 
 		#// Vintage Responder BOWSER module, now disabled by default. 
 		#// Generate to much noise & easily detectable on the network when in analyze mode.
