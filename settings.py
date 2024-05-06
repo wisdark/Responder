@@ -117,7 +117,7 @@ class Settings:
 
         # Poisoners
 		self.LLMNR_On_Off    = self.toBool(config.get('Responder Core', 'LLMNR'))
-		self.NBNS_On_Off     = self.toBool(config.get('Responder Core', 'NBTNS'))
+		self.NBTNS_On_Off     = self.toBool(config.get('Responder Core', 'NBTNS'))
 		self.MDNS_On_Off     = self.toBool(config.get('Responder Core', 'MDNS'))
 
 		# Servers
