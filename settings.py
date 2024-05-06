@@ -114,7 +114,12 @@ class Settings:
 		# Config parsing
 		config = ConfigParser.ConfigParser()
 		config.read(os.path.join(self.ResponderPATH, 'Responder.conf'))
-		
+
+        # Poisoners
+		self.LLMNR_On_Off    = self.toBool(config.get('Responder Core', 'LLMNR'))
+		self.NBNS_On_Off     = self.toBool(config.get('Responder Core', 'NBTNS'))
+		self.MDNS_On_Off     = self.toBool(config.get('Responder Core', 'MDNS'))
+
 		# Servers
 		self.HTTP_On_Off     = self.toBool(config.get('Responder Core', 'HTTP'))
 		self.SSL_On_Off      = self.toBool(config.get('Responder Core', 'HTTPS'))
