@@ -73,7 +73,7 @@ class MDNS(BaseRequestHandler):
 						})
 			elif MDNSType == True:  # Poisoning Mode
 				Poisoned_Name = Poisoned_MDNS_Name(data)
-				Buffer = MDNS_Ans(AnswerName = Poisoned_Name)
+				Buffer = MDNS_Ans(AnswerName = Poisoned_Name, TTL=settings.Config.TTL)
 				Buffer.calculate()
 				soc.sendto(NetworkSendBufferPython2or3(Buffer), self.client_address)
 				if not settings.Config.Quiet_Mode:

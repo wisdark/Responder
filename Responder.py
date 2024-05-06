@@ -45,6 +45,7 @@ parser.add_option('-Q','--quiet',           action="store_true", help="Tell Resp
 parser.add_option('--lm',                  action="store_true", help="Force LM hashing downgrade for Windows XP/2003 and earlier. Default: False", dest="LM_On_Off", default=False)
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
+parser.add_option('-t','--ttl',      action="store",      help="Configure the TTL in the victim cache. Value in hex (30 seconds = 1e)", dest="TTL", metavar="1e", default=None)
 options, args = parser.parse_args()
 
 if not os.geteuid() == 0:

@@ -559,6 +559,7 @@ def StartupMessage():
 		print('    %-27s' % "Don't Respond To" + color(str(settings.Config.DontRespondTo), 5, 1))
 	if len(settings.Config.DontRespondToName):
 		print('    %-27s' % "Don't Respond To Names" + color(str(settings.Config.DontRespondToName), 5, 1))
+	print('    %-27s' % "TTL for poisoned response" + color(str(settings.Config.TTL.encode().hex()) + " ("+ str(int.from_bytes(str.encode(settings.Config.TTL),"big")) +" seconds)", 5, 1))
 	print('')
 
 	print(color("[+] ", 2, 1) + "Current Session Variables:")
