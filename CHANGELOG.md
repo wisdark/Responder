@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 <small>[Compare with latest](https://github.com/lgandx/Responder/compare/v3.1.4.0...HEAD)</small>
 
+### Added
+
+- Add options for poisoners ([807bd57](https://github.com/lgandx/Responder/commit/807bd57a96337ab77f2fff50729a6eb229e5dc37) by f3rn0s).
+- Add randomness in TTL value to avoid some EDR detections ([f50f0be](https://github.com/lgandx/Responder/commit/f50f0be59c0de6fd0ff8eef62ba31db96815c878) by nodauf).
+- added support for either resolv.conf or resolvectl ([1a2f2fd](https://github.com/lgandx/Responder/commit/1a2f2fdb22a2bf8b04e0ac99219831457b7ba43a) by lgandx).
+
+### Fixed
+
+- Fixed issue with smb signing detection ([413bc8b](https://github.com/lgandx/Responder/commit/413bc8be3169d215f7d5f251a78c8d8404e52f61) by lgandx).
+- fixed minor bug ([e51f24e](https://github.com/lgandx/Responder/commit/e51f24e36c1f84bc995a690d385c506c35cc6175) by lgandx).
+- Fixed bug when IPv6 is disabled via GRUB. ([fa297c8](https://github.com/lgandx/Responder/commit/fa297c8a16f605bdb731542c67280a4d8bc023c4) by lgandx).
+
 ### Removed
 
 - removed debug string ([4b560f6](https://github.com/lgandx/Responder/commit/4b560f6e17493dcfc6bf653d0ebe0547a88735ac) by lgandx).
