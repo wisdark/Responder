@@ -73,7 +73,11 @@ class MDNS(BaseRequestHandler):
 						})
 			elif MDNSType == True:  # Poisoning Mode
 				Poisoned_Name = Poisoned_MDNS_Name(data)
-				Buffer = MDNS_Ans(AnswerName = Poisoned_Name, TTL=settings.Config.TTL)
+				#Use default:
+				if settings.Config.TTL == None:
+					Buffer = MDNS_Ans(AnswerName = Poisoned_Name)
+				else:
+					Buffer = MDNS_Ans(AnswerName = Poisoned_Name, TTL=settings.Config.TTL)
 				Buffer.calculate()
 				soc.sendto(NetworkSendBufferPython2or3(Buffer), self.client_address)
 				if not settings.Config.Quiet_Mode:
@@ -85,9 +89,13 @@ class MDNS(BaseRequestHandler):
 						'AnalyzeMode': '0',
 						})
 
-			elif MDNSType == 'IPv6'and Have_IPv6:  # Poisoning Mode
+			elif MDNSType == 'IPv6' and Have_IPv6:  # Poisoning Mode
 				Poisoned_Name = Poisoned_MDNS_Name(data)
-				Buffer = MDNS6_Ans(AnswerName = Poisoned_Name)
+				#Use default:
+				if settings.Config.TTL == None:
+					Buffer = MDNS6_Ans(AnswerName = Poisoned_Name)
+				else:
+					Buffer = MDNS6_Ans(AnswerName = Poisoned_Name, TTL= settings.Config.TTL)
 				Buffer.calculate()
 				soc.sendto(NetworkSendBufferPython2or3(Buffer), self.client_address)
 				if not settings.Config.Quiet_Mode:

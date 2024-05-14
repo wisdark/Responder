@@ -44,7 +44,10 @@ class NBTNS(BaseRequestHandler):
 							'AnalyzeMode': '1',
 							})
 				else:  # Poisoning Mode
-					Buffer1 = NBT_Ans(TTL=settings.Config.TTL)
+					if settings.Config.TTL == None:
+						Buffer1 = NBT_Ans()
+					else:
+						Buffer1 = NBT_Ans(TTL=settings.Config.TTL)
 					Buffer1.calculate(data)
 					socket.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:

@@ -76,7 +76,11 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							})
 
 				elif LLMNRType == True:  # Poisoning Mode
-					Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
+					#Default:
+					if settings.Config.TTL == None:
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+					else:
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:
@@ -90,7 +94,11 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							})
 
 				elif LLMNRType == 'IPv6' and Have_IPv6:
-					Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
+					#Default:
+					if settings.Config.TTL == None:
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+					else:
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:

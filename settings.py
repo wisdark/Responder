@@ -175,8 +175,12 @@ class Settings:
 
 		# TTL blacklist. Known to be detected by SOC / XDR
 		TTL_blacklist = [b"\x00\x00\x00\x1e", b"\x00\x00\x00\x78", b"\x00\x00\x00\xa5"]
-		# Random TTL
+		# Lets add a default mode, which uses Windows default TTL for each protocols (set respectively in packets.py)
 		if options.TTL is None:
+			self.TTL = None
+			
+		# Random TTL
+		elif options.TTL.upper() == "RANDOM":
 			TTL = bytes.fromhex("000000"+format(random.randint(10,90),'x'))
 			if TTL in TTL_blacklist:
 				TTL = int.from_bytes(TTL, "big")+1

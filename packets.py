@@ -52,7 +52,7 @@ class NBT_Ans(Packet):
 		("NbtName",       ""),
 		("Type",          "\x00\x20"),
 		("Classy",        "\x00\x01"),
-		("TTL",           "\x00\x00\x00\xa5"),
+		("TTL",           "\x00\x04\x93\xe0"), #TTL: 3 days, 11 hours, 20 minutes (Default windows behavior)
 		("Len",           "\x00\x06"),
 		("Flags1",        "\x00\x00"),
 		("IP",            "\x00\x00\x00\x00"),
@@ -263,7 +263,7 @@ class LLMNR_Ans(Packet):
 		("AnswerNameNull",   "\x00"),
 		("Type1",            "\x00\x01"),
 		("Class1",           "\x00\x01"),
-		("TTL",              "\x00\x00\x00\x1e"),##Poison for 30 sec.
+		("TTL",              "\x00\x00\x00\x1e"),##Poison for 30 sec (Default windows behavior)
 		("IPLen",            "\x00\x04"),
 		("IP",               "\x00\x00\x00\x00"),
 	])
@@ -292,7 +292,7 @@ class LLMNR6_Ans(Packet):
 		("AnswerNameNull",   "\x00"),
 		("Type1",            "\x00\x1c"),
 		("Class1",           "\x00\x01"),
-		("TTL",              "\x00\x00\x00\x1e"),##Poison for 30 sec.
+		("TTL",              "\x00\x00\x00\x1e"),##Poison for 30 sec (Default windows behavior).
 		("IPLen",            "\x00\x04"),
 		("IP",               "\x00\x00\x00\x00"),
 	])
@@ -316,7 +316,7 @@ class MDNS_Ans(Packet):
 		("AnswerNameNull",   "\x00"),
 		("Type",             "\x00\x01"),
 		("Class",            "\x00\x01"),
-		("TTL",              "\x00\x00\x00\x78"),##Poison for 2mn.
+		("TTL",              "\x00\x00\x00\x78"),##Poison for 2mn (Default windows behavior)
 		("IPLen",            "\x00\x04"),
 		("IP",               "\x00\x00\x00\x00"),
 	])
@@ -338,7 +338,7 @@ class MDNS6_Ans(Packet):
 		("AnswerNameNull",   "\x00"),
 		("Type",             "\x00\x1c"),
 		("Class",            "\x00\x01"),
-		("TTL",              "\x00\x00\x00\x78"),##Poison for 2mn.
+		("TTL",              "\x00\x00\x00\x78"),##Poison for 2mn (Default windows behavior)
 		("IPLen",            "\x00\x04"),
 		("IP",               "\x00\x00\x00\x00"),
 	])
