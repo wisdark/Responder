@@ -45,6 +45,7 @@ parser.add_option('-Q','--quiet',           action="store_true", help="Tell Resp
 parser.add_option('--lm',                  action="store_true", help="Force LM hashing downgrade for Windows XP/2003 and earlier. Default: False", dest="LM_On_Off", default=False)
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
+parser.add_option('-t','--ttl',            action="store",      help="Change the default Windows TTL for poisoned answers. Value in hex (30 seconds = 1e). use '-t random' for random TTL", dest="TTL", metavar="1e", default=None)
 options, args = parser.parse_args()
 
 if not os.geteuid() == 0:
@@ -53,6 +54,10 @@ if not os.geteuid() == 0:
 elif options.OURIP == None and IsOsX() == True:
     print("\n\033[1m\033[31mOSX detected, -i mandatory option is missing\033[0m\n")
     parser.print_help()
+    exit(-1)
+    
+elif options.ProxyAuth_On_Off and options.WPAD_On_Off:
+    print("\n\033[1m\033[31mYou cannot use WPAD server and Proxy_Auth server at the same time, choose one of them.\033[0m\n")
     exit(-1)
 
 settings.init()
@@ -65,6 +70,8 @@ settings.Config.ExpandIPRanges()
 #Create the DB, before we start Responder.
 CreateResponderDb()
 
+Have_IPv6 = settings.Config.IPv6
+
 class ThreadingUDPServer(ThreadingMixIn, UDPServer):
 	def server_bind(self):
 		if OsInterfaceIsSupported():
@@ -74,10 +81,12 @@ class ThreadingUDPServer(ThreadingMixIn, UDPServer):
 				else:
 					if (sys.version_info > (3, 0)):
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 					else:
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 			except:
 				pass
 		UDPServer.server_bind(self)
@@ -91,10 +100,12 @@ class ThreadingTCPServer(ThreadingMixIn, TCPServer):
 				else:
 					if (sys.version_info > (3, 0)):
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 					else:
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 			except:
 				pass
 		TCPServer.server_bind(self)
@@ -108,10 +119,12 @@ class ThreadingTCPServerAuth(ThreadingMixIn, TCPServer):
 				else:
 					if (sys.version_info > (3, 0)):
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 					else:
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 			except:
 				pass
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
@@ -127,11 +140,13 @@ class ThreadingUDPMDNSServer(ThreadingMixIn, UDPServer):
 
 		#IPV6:
 		if (sys.version_info > (3, 0)):
-			mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
-			self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+			if Have_IPv6:
+				mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
+				self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
 		else:
-			mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
-			self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+			if Have_IPv6:
+				mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
+				self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
 		if OsInterfaceIsSupported():
 			try:
 				if settings.Config.Bind_To_ALL:
@@ -139,10 +154,12 @@ class ThreadingUDPMDNSServer(ThreadingMixIn, UDPServer):
 				else:
 					if (sys.version_info > (3, 0)):
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 					else:
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 			except:
 				pass
 		UDPServer.server_bind(self)
@@ -156,8 +173,9 @@ class ThreadingUDPLLMNRServer(ThreadingMixIn, UDPServer):
 		Join = self.socket.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton(MADDR) + settings.Config.IP_aton)
 
 		#IPV6:
-		mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
-		self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+		if Have_IPv6:
+			mreq = socket.inet_pton(socket.AF_INET6, MADDR6) + struct.pack('@I', if_nametoindex2(settings.Config.Interface))
+			self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
 		if OsInterfaceIsSupported():
 			try:
 				if settings.Config.Bind_To_ALL:
@@ -165,29 +183,36 @@ class ThreadingUDPLLMNRServer(ThreadingMixIn, UDPServer):
 				else:
 					if (sys.version_info > (3, 0)):
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, bytes(settings.Config.Interface+'\0', 'utf-8'))
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 					else:
 						self.socket.setsockopt(socket.SOL_SOCKET, 25, settings.Config.Interface+'\0')
-						self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+						if Have_IPv6:
+							self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
 			except:
 				pass
 		UDPServer.server_bind(self)
 		
 
 ThreadingUDPServer.allow_reuse_address = 1
-ThreadingUDPServer.address_family = socket.AF_INET6
+if Have_IPv6:
+	ThreadingUDPServer.address_family = socket.AF_INET6
 
 ThreadingTCPServer.allow_reuse_address = 1
-ThreadingTCPServer.address_family = socket.AF_INET6
+if Have_IPv6:
+	ThreadingTCPServer.address_family = socket.AF_INET6
 
 ThreadingUDPMDNSServer.allow_reuse_address = 1
-ThreadingUDPMDNSServer.address_family = socket.AF_INET6
+if Have_IPv6:
+	ThreadingUDPMDNSServer.address_family = socket.AF_INET6
 
 ThreadingUDPLLMNRServer.allow_reuse_address = 1
-ThreadingUDPLLMNRServer.address_family = socket.AF_INET6
+if Have_IPv6:
+	ThreadingUDPLLMNRServer.address_family = socket.AF_INET6
 
 ThreadingTCPServerAuth.allow_reuse_address = 1
-ThreadingTCPServerAuth.address_family = socket.AF_INET6
+if Have_IPv6:
+	ThreadingTCPServerAuth.address_family = socket.AF_INET6
 
 def serve_thread_udp_broadcast(host, port, handler):
 	try:
@@ -270,20 +295,27 @@ def main():
 		if (sys.version_info < (3, 0)):
 			print(color('\n\n[-]', 3, 1) + " Still using python 2? :(")
 		print(color('\n[+]', 2, 1) + " Listening for events...\n")
-			
+
 		threads = []
 
 		# Load (M)DNS, NBNS and LLMNR Poisoners
-		from poisoners.LLMNR import LLMNR
-		from poisoners.NBTNS import NBTNS
-		from poisoners.MDNS import MDNS
-		threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
-		threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
-		threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+		if settings.Config.LLMNR_On_Off:
+		    from poisoners.LLMNR import LLMNR
+		    threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
 
+		if settings.Config.NBTNS_On_Off:
+		    from poisoners.NBTNS import NBTNS
+		    threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+
+		if settings.Config.MDNS_On_Off:
+		    from poisoners.MDNS import MDNS
+		    threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
+
+		#// Vintage Responder BOWSER module, now disabled by default. 
+		#// Generate to much noise & easily detectable on the network when in analyze mode.
 		# Load Browser Listener
-		from servers.Browser import Browser
-		threads.append(Thread(target=serve_thread_udp_broadcast, args=('', 138,  Browser,)))
+		#from servers.Browser import Browser
+		#threads.append(Thread(target=serve_thread_udp_broadcast, args=('', 138,  Browser,)))
 
 		if settings.Config.HTTP_On_Off:
 			from servers.HTTP import HTTP
@@ -312,7 +344,7 @@ def main():
 
 		if settings.Config.WPAD_On_Off:
 			from servers.HTTP_Proxy import HTTP_Proxy
-			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3141, HTTP_Proxy,)))
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3128, HTTP_Proxy,)))
 
 		if settings.Config.ProxyAuth_On_Off:
 		        from servers.Proxy_Auth import Proxy_Auth
@@ -349,7 +381,12 @@ def main():
 		if settings.Config.LDAP_On_Off:
 			from servers.LDAP import LDAP, CLDAP
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 389, LDAP,)))
+			threads.append(Thread(target=serve_thread_SSL, args=(settings.Config.Bind_To, 636, LDAP,)))
 			threads.append(Thread(target=serve_thread_udp, args=('', 389, CLDAP,)))
+
+		if settings.Config.MQTT_On_Off:
+			from servers.MQTT import MQTT
+			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 1883, MQTT,)))
 
 		if settings.Config.SMTP_On_Off:
 			from servers.SMTP import ESMTP

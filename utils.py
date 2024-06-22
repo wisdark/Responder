@@ -180,7 +180,7 @@ def IsOsX():
 def IsIPv6IP(IP):
 	if IP == None:
 		return False
-	regex = "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
+	regex = r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
 	ret  = re.search(regex, IP)
 	if ret:
 		return True
@@ -219,7 +219,17 @@ def FindLocalIP(Iface, OURIP):
 		print(color("[!] Error: %s: Interface not found" % Iface, 1))
 		sys.exit(-1)
 
-
+def Probe_IPv6_socket():
+	"""Return true is IPv6 sockets are really supported, and False when IPv6 is not supported."""
+	if not socket.has_ipv6:
+		return False
+	try:
+		with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+			s.bind(("::1", 0))
+		return True
+	except:
+		return False
+		
 def FindLocalIP6(Iface, OURIP):
 	if Iface == 'ALL':
 		return '::'
@@ -234,7 +244,6 @@ def FindLocalIP6(Iface, OURIP):
 				s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
 				s.connect((randIP+':80', 1))
 				IP = s.getsockname()[0]
-				print('IP is: %s'%IP)
 				return IP
 			except:
 				try:
@@ -471,7 +480,7 @@ def banner():
 	print("\n           \033[1;33mNBT-NS, LLMNR & MDNS %s\033[0m" % settings.__version__)
 	print('')
 	print("  To support this project:")
-	print("  Patreon -> https://www.patreon.com/PythonResponder")
+	print("  Github -> https://github.com/sponsors/lgandx")
 	print("  Paypal  -> https://paypal.me/PythonResponder")
 	print('')
 	print("  Author: Laurent Gaffie (laurent.gaffie@gmail.com)")
@@ -506,6 +515,7 @@ def StartupMessage():
 	print('    %-27s' % "SMTP server" + (enabled if settings.Config.SMTP_On_Off else disabled))
 	print('    %-27s' % "DNS server" + (enabled if settings.Config.DNS_On_Off else disabled))
 	print('    %-27s' % "LDAP server" + (enabled if settings.Config.LDAP_On_Off else disabled))
+	print('    %-27s' % "MQTT server" + (enabled if settings.Config.MQTT_On_Off else disabled))
 	print('    %-27s' % "RDP server" + (enabled if settings.Config.RDP_On_Off else disabled))
 	print('    %-27s' % "DCE-RPC server" + (enabled if settings.Config.DCERPC_On_Off else disabled))
 	print('    %-27s' % "WinRM server" + (enabled if settings.Config.WinRM_On_Off else disabled))
@@ -549,6 +559,10 @@ def StartupMessage():
 		print('    %-27s' % "Don't Respond To" + color(str(settings.Config.DontRespondTo), 5, 1))
 	if len(settings.Config.DontRespondToName):
 		print('    %-27s' % "Don't Respond To Names" + color(str(settings.Config.DontRespondToName), 5, 1))
+	if settings.Config.TTL == None:
+		print('    %-27s' % "TTL for poisoned response "+ color('[default]', 5, 1))
+	else:
+		print('    %-27s' % "TTL for poisoned response" + color(str(settings.Config.TTL.encode().hex()) + " ("+ str(int.from_bytes(str.encode(settings.Config.TTL),"big")) +" seconds)", 5, 1))
 	print('')
 
 	print(color("[+] ", 2, 1) + "Current Session Variables:")

