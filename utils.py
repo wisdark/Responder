@@ -122,7 +122,10 @@ def RespondToThisIP(ClientIp):
 	return False
 
 def RespondToThisName(Name):
-	if settings.Config.RespondToName and Name.upper() not in settings.Config.RespondToName:
+
+	if [i for i in settings.Config.DontRespondToTLD if Name.upper().endswith(i)]:
+		return False
+	elif settings.Config.RespondToName and Name.upper() not in settings.Config.RespondToName:
 		return False
 	elif Name.upper() in settings.Config.RespondToName or settings.Config.RespondToName == []:
 		if Name.upper() not in settings.Config.DontRespondToName:
@@ -559,6 +562,8 @@ def StartupMessage():
 		print('    %-27s' % "Don't Respond To" + color(str(settings.Config.DontRespondTo), 5, 1))
 	if len(settings.Config.DontRespondToName):
 		print('    %-27s' % "Don't Respond To Names" + color(str(settings.Config.DontRespondToName), 5, 1))
+	if len(settings.Config.DontRespondToTLD):
+		print('    %-27s' % "Don't Respond To MDNS TLD" + color(str(settings.Config.DontRespondToTLD), 5, 1))
 	if settings.Config.TTL == None:
 		print('    %-27s' % "TTL for poisoned response "+ color('[default]', 5, 1))
 	else:
