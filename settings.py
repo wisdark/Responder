@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.1.4.0'
+__version__ = 'Responder 3.1.5.0'
 
 class Settings:
 	
@@ -284,6 +284,7 @@ class Settings:
 		self.RespondTo         = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondTo').strip().split(',')]))
 		self.RespondToName     = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'RespondToName').strip().split(',')]))
 		self.DontRespondTo     = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondTo').strip().split(',')]))
+		self.DontRespondToTLD  = list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondToTLD').strip().split(',')]))
 		self.DontRespondToName_= list(filter(None, [x.upper().strip() for x in config.get('Responder Core', 'DontRespondToName').strip().split(',')]))
 		#add a .local to all provided DontRespondToName
 		self.MDNSTLD           = ['.LOCAL']
