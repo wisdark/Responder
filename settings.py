@@ -172,6 +172,7 @@ class Settings:
 		self.DHCP_DNS           = options.DHCP_DNS
 		self.ExternalIP6        = options.ExternalIP6
 		self.Quiet_Mode			= options.Quiet
+		self.AnswerName			= options.AnswerName
 
 		# TTL blacklist. Known to be detected by SOC / XDR
 		TTL_blacklist = [b"\x00\x00\x00\x1e", b"\x00\x00\x00\x78", b"\x00\x00\x00\xa5"]

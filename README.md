@@ -157,14 +157,23 @@ Options:
                         False
     -P, --ProxyAuth       Force NTLM (transparently)/Basic (prompt)
                         authentication for the proxy. WPAD doesn't need to be
-                        ON. Default: False
+                        ON. This option is highly effective. Default: False
+    -Q, --quiet           Tell Responder to be quiet, disables a bunch of
+                        printing from the poisoners. Default: False
     --lm                  Force LM hashing downgrade for Windows XP/2003 and
                         earlier. Default: False
     --disable-ess         Force ESS downgrade. Default: False
     -v, --verbose         Increase verbosity.
+    -t 1e, --ttl=1e       Change the default Windows TTL for poisoned answers.
+                        Value in hex (30 seconds = 1e). use '-t random' for
+                        random TTL
+    -N ANSWERNAME, --AnswerName=ANSWERNAME
+                        Specifies the canonical name returned by the LLMNR
+                        poisoner in tits Answer section. By default, the
+                        answer's canonical name is the same as the query.
+                        Changing this value is mainly useful when attempting
+                        to perform Kebreros relaying over HTTP.
 
-
-	
 
 ## Donation ##
 
