@@ -302,16 +302,16 @@ def main():
 
 		# Load (M)DNS, NBNS and LLMNR Poisoners
 		if settings.Config.LLMNR_On_Off:
-			from poisoners.LLMNR import LLMNR
-			threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
+		    from poisoners.LLMNR import LLMNR
+		    threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
 
 		if settings.Config.NBTNS_On_Off:
-			from poisoners.NBTNS import NBTNS
-			threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+		    from poisoners.NBTNS import NBTNS
+		    threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
 
 		if settings.Config.MDNS_On_Off:
-			from poisoners.MDNS import MDNS
-			threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
+		    from poisoners.MDNS import MDNS
+		    threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
 
 		#// Vintage Responder BOWSER module, now disabled by default. 
 		#// Generate to much noise & easily detectable on the network when in analyze mode.
@@ -349,8 +349,8 @@ def main():
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3128, HTTP_Proxy,)))
 
 		if settings.Config.ProxyAuth_On_Off:
-				from servers.Proxy_Auth import Proxy_Auth
-				threads.append(Thread(target=serve_thread_tcp_auth, args=(settings.Config.Bind_To, 3128, Proxy_Auth,)))
+		        from servers.Proxy_Auth import Proxy_Auth
+		        threads.append(Thread(target=serve_thread_tcp_auth, args=(settings.Config.Bind_To, 3128, Proxy_Auth,)))
 
 		if settings.Config.SMB_On_Off:
 			if settings.Config.LM_On_Off:
