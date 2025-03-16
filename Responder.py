@@ -47,6 +47,7 @@ parser.add_option('--disable-ess',         action="store_true", help="Force ESS 
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
 parser.add_option('-t','--ttl',            action="store",      help="Change the default Windows TTL for poisoned answers. Value in hex (30 seconds = 1e). use '-t random' for random TTL", dest="TTL", metavar="1e", default=None)
 parser.add_option('-N', '--AnswerName',	   action="store",      help="Specifies the canonical name returned by the LLMNR poisoner in tits Answer section. By default, the answer's canonical name is the same as the query. Changing this value is mainly useful when attempting to perform Kebreros relaying over HTTP.", dest="AnswerName", default=None)
+parser.add_option('-E', '--ErrorCode',     action="store_true",      help="Changes the error code returned by the SMB server to STATUS_LOGON_FAILURE. By default, the status is STATUS_ACCESS_DENIED. Changing this value permits to obtain WebDAV authentications from the poisoned machines where the WebClient service is running.", dest="ErrorCode", default=False)
 options, args = parser.parse_args()
 
 if not os.geteuid() == 0:
@@ -301,16 +302,16 @@ def main():
 
 		# Load (M)DNS, NBNS and LLMNR Poisoners
 		if settings.Config.LLMNR_On_Off:
-		    from poisoners.LLMNR import LLMNR
-		    threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
+			from poisoners.LLMNR import LLMNR
+			threads.append(Thread(target=serve_LLMNR_poisoner, args=('', 5355, LLMNR,)))
 
 		if settings.Config.NBTNS_On_Off:
-		    from poisoners.NBTNS import NBTNS
-		    threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
+			from poisoners.NBTNS import NBTNS
+			threads.append(Thread(target=serve_NBTNS_poisoner, args=('', 137,  NBTNS,)))
 
 		if settings.Config.MDNS_On_Off:
-		    from poisoners.MDNS import MDNS
-		    threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
+			from poisoners.MDNS import MDNS
+			threads.append(Thread(target=serve_MDNS_poisoner,  args=('', 5353, MDNS,)))
 
 		#// Vintage Responder BOWSER module, now disabled by default. 
 		#// Generate to much noise & easily detectable on the network when in analyze mode.
@@ -348,8 +349,8 @@ def main():
 			threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 3128, HTTP_Proxy,)))
 
 		if settings.Config.ProxyAuth_On_Off:
-		        from servers.Proxy_Auth import Proxy_Auth
-		        threads.append(Thread(target=serve_thread_tcp_auth, args=(settings.Config.Bind_To, 3128, Proxy_Auth,)))
+				from servers.Proxy_Auth import Proxy_Auth
+				threads.append(Thread(target=serve_thread_tcp_auth, args=(settings.Config.Bind_To, 3128, Proxy_Auth,)))
 
 		if settings.Config.SMB_On_Off:
 			if settings.Config.LM_On_Off:
