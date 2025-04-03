@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import asyncio
 import optparse
 import ssl
 try:
@@ -360,6 +361,12 @@ def main():
 				from servers.SMB import SMB1
 				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 445, SMB1,)))
 				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 139, SMB1,)))
+
+		if settings.Config.QUIC_On_Off:
+			from servers.QUIC import start_quic_server
+			cert = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLCert)
+			key = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLKey)
+			threads.append(Thread(target=lambda: asyncio.run(start_quic_server(settings.Config.Bind_To, cert, key))))
 
 		if settings.Config.Krb_On_Off:
 			from servers.Kerberos import KerbTCP, KerbUDP
