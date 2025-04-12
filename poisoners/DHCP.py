@@ -239,9 +239,12 @@ def ParseSrcDSTAddr(data):
     return SrcIP, SrcPort, DstIP, DstPort
 
 def FindIP(data):
-    data = data.decode('latin-1')
-    IP = ''.join(re.findall(r'(?<=\x32\x04)[^EOF]*', data))
-    return ''.join(IP[0:4]).encode('latin-1')
+    IPPos = data.find(b"\x32\x04") + 2
+    if IPPos == -1 or IPPos + 4 >= len(data):
+        return None
+    else:
+        IP = data[IPPos:IPPos+4]
+        return IP
 
 def ParseDHCPCode(data, ClientIP,DHCP_DNS):
     global DHCPClient
