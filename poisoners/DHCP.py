@@ -240,8 +240,9 @@ def ParseSrcDSTAddr(data):
 
 def FindIP(data):
     IPPos = data.find(b"\x32\x04") + 2
-    if IPPos == -1 or IPPos + 4 >= len(data):
-        return None
+    if IPPos == -1 or IPPos + 4 >= len(data) or IPPos == 1:
+        #Probably not present in the DHCP options we received, let's grab it from the IP header instead
+        return data[12:16]
     else:
         IP = data[IPPos:IPPos+4]
         return IP
