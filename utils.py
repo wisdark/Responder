@@ -485,21 +485,13 @@ def banner():
 	])
 
 	print(banner)
-	print("\n           \033[1;33mNBT-NS, LLMNR & MDNS %s\033[0m" % settings.__version__)
-	print('')
-	print("  To support this project:")
-	print("  Github -> https://github.com/sponsors/lgandx")
-	print("  Paypal  -> https://paypal.me/PythonResponder")
-	print('')
-	print("  Author: Laurent Gaffie (laurent.gaffie@gmail.com)")
-	print("  To kill this script hit CTRL-C")
 	print('')
 
 
 def StartupMessage():
 	enabled  = color('[ON]', 2, 1) 
 	disabled = color('[OFF]', 1, 1)
-
+	print(color("[*] ", 2, 1)+"Sponsor Responder: https://paypal.me/PythonResponder")
 	print('')
 	print(color("[+] ", 2, 1) + "Poisoners:")
 	print('    %-27s' % "LLMNR" + (enabled if (settings.Config.AnalyzeMode == False and settings.Config.LLMNR_On_Off) else disabled))
@@ -579,4 +571,8 @@ def StartupMessage():
 	print('    %-27s' % "Responder Machine Name" + color('[%s]' % settings.Config.MachineName, 5, 1))
 	print('    %-27s' % "Responder Domain Name" + color('[%s]' % settings.Config.DomainName, 5, 1))
 	print('    %-27s' % "Responder DCE-RPC Port " + color('[%s]' % settings.Config.RPCPort, 5, 1))
-
+	
+	#credits
+	print('')
+	print(color("[*] ", 2, 1)+"Version: "+settings.__version__)
+	print(color("[*] ", 2, 1)+"Author: Laurent Gaffie, <lgaffie@secorizon.com>")
