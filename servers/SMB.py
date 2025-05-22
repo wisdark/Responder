@@ -239,7 +239,11 @@ class SMB1(BaseRequestHandler):  # SMB1 & SMB2 Server class, NTLMSSP
                                 ## Session Setup 3 answer SMBv2.
 				if data[16:18] == b'\x01\x00' and GrabMessageID(data)[0:1] == b'\x02' or GrabMessageID(data)[0:1] == b'\x03' and data[4:5] == b'\xfe':
 					ParseSMBHash(data, self.client_address[0], Challenge)
-					head = SMB2Header(Cmd="\x01\x00", MessageId=GrabMessageID(data).decode('latin-1'), PID="\xff\xfe\x00\x00", CreditCharge=GrabCreditCharged(data).decode('latin-1'), Credits=GrabCreditRequested(data).decode('latin-1'), NTStatus="\x22\x00\x00\xc0", SessionID=GrabSessionID(data).decode('latin-1'))
+					if settings.Config.ErrorCode:
+						ntstatus="\x6d\x00\x00\xc0"
+					else:
+						ntstatus="\x22\x00\x00\xc0"
+					head = SMB2Header(Cmd="\x01\x00", MessageId=GrabMessageID(data).decode('latin-1'), PID="\xff\xfe\x00\x00", CreditCharge=GrabCreditCharged(data).decode('latin-1'), Credits=GrabCreditRequested(data).decode('latin-1'), NTStatus=ntstatus, SessionID=GrabSessionID(data).decode('latin-1'))
 					t = SMB2Session2Data()
 					packet1 = str(head)+str(t)
 					buffer1 = StructPython2or3('>i', str(packet1))+str(packet1)
@@ -357,7 +361,11 @@ class SMB1LM(BaseRequestHandler):  # SMB Server class, old version
 					self.request.send(NetworkSendBufferPython2or3(Buffer))
 				else:
 					ParseLMNTHash(data,self.client_address[0], Challenge)
-					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode="\x22\x00\x00\xc0",pid=pidcalc(NetworkRecvBufferPython2or3(data)),tid=tidcalc(NetworkRecvBufferPython2or3(data)),uid=uidcalc(NetworkRecvBufferPython2or3(data)),mid=midcalc(NetworkRecvBufferPython2or3(data)))
+					if settings.Config.ErrorCode:
+						ntstatus="\x6d\x00\x00\xc0"
+					else:
+						ntstatus="\x22\x00\x00\xc0"
+					head = SMBHeader(cmd="\x73",flag1="\x90", flag2="\x53\xc8",errorcode=ntstatus,pid=pidcalc(NetworkRecvBufferPython2or3(data)),tid=tidcalc(NetworkRecvBufferPython2or3(data)),uid=uidcalc(NetworkRecvBufferPython2or3(data)),mid=midcalc(NetworkRecvBufferPython2or3(data)))
 					Packet = str(head) + str(SMBSessEmpty())
 					Buffer = StructPython2or3('>i', str(Packet))+str(Packet)
 					self.request.send(NetworkSendBufferPython2or3(Buffer))

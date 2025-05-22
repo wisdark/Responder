@@ -173,6 +173,11 @@ Options:
                         answer's canonical name is the same as the query.
                         Changing this value is mainly useful when attempting
                         to perform Kebreros relaying over HTTP.
+    -E, --ErrorCode     Changes the error code returned by the SMB server to
+                        STATUS_LOGON_FAILURE. By default, the status is
+                        STATUS_ACCESS_DENIED. Changing this value permits to
+                        obtain WebDAV authentications from the poisoned
+                        machines where the WebClient service is running.
 
 
 ## Donation ##
