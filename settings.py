@@ -124,6 +124,7 @@ class Settings:
 		self.HTTP_On_Off     = self.toBool(config.get('Responder Core', 'HTTP'))
 		self.SSL_On_Off      = self.toBool(config.get('Responder Core', 'HTTPS'))
 		self.SMB_On_Off      = self.toBool(config.get('Responder Core', 'SMB'))
+		self.QUIC_On_Off     = self.toBool(config.get('Responder Core', 'QUIC'))
 		self.SQL_On_Off      = self.toBool(config.get('Responder Core', 'SQL'))
 		self.FTP_On_Off      = self.toBool(config.get('Responder Core', 'FTP'))
 		self.POP_On_Off      = self.toBool(config.get('Responder Core', 'POP'))
