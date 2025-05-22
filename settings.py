@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.1.5.0'
+__version__ = 'Responder 3.1.6.0'
 
 class Settings:
 	

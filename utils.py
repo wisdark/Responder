@@ -29,7 +29,12 @@ try:
 	import netifaces
 except:
 	sys.exit('You need to install python-netifaces or run Responder with python3...\nTry "apt-get install python-netifaces" or "pip install netifaces"')
-	
+
+try:
+	import aioquic
+except:
+	sys.exit('You need to install aioquic...\nTry "apt-get install python-aioquic" or "pip install aioquic"')
+
 from calendar import timegm
 
 def if_nametoindex2(name):
