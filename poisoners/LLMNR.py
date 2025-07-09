@@ -71,7 +71,9 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 			if data[2:4] == b'\x00\x00' and LLMNRType:
 				if settings.Config.AnalyzeMode:
 					LineHeader = "[Analyze mode: LLMNR]"
-					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+					# Don't print if in Quiet Mode
+					if not settings.Config.Quite_Mode:
+						print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
