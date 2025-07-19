@@ -47,7 +47,7 @@ parser.add_option('--lm',                  action="store_true", help="Force LM h
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
 parser.add_option('-t','--ttl',            action="store",      help="Change the default Windows TTL for poisoned answers. Value in hex (30 seconds = 1e). use '-t random' for random TTL", dest="TTL", metavar="1e", default=None)
-parser.add_option('-N', '--AnswerName',	   action="store",      help="Specifies the canonical name returned by the LLMNR poisoner in tits Answer section. By default, the answer's canonical name is the same as the query. Changing this value is mainly useful when attempting to perform Keberos relaying over HTTP.", dest="AnswerName", default=None)
+parser.add_option('-N', '--AnswerName',	   action="store",      help="Specifies the canonical name returned by the LLMNR poisoner in tits Answer section. By default, the answer's canonical name is the same as the query. Changing this value is mainly useful when attempting to perform Kerberos relaying over HTTP.", dest="AnswerName", default=None)
 parser.add_option('-E', '--ErrorCode',     action="store_true",      help="Changes the error code returned by the SMB server to STATUS_LOGON_FAILURE. By default, the status is STATUS_ACCESS_DENIED. Changing this value permits to obtain WebDAV authentications from the poisoned machines where the WebClient service is running.", dest="ErrorCode", default=False)
 options, args = parser.parse_args()
 
