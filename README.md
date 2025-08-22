@@ -169,7 +169,7 @@ Options:
                         random TTL
     -N ANSWERNAME, --AnswerName=ANSWERNAME
                         Specifies the canonical name returned by the LLMNR
-                        poisoner in tits Answer section. By default, the
+                        poisoner in its Answer section. By default, the
                         answer's canonical name is the same as the query.
                         Changing this value is mainly useful when attempting
                         to perform Kerberos relaying over HTTP.
