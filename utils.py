@@ -28,7 +28,7 @@ import random
 try:
 	import netifaces
 except:
-	sys.exit('You need to install python-netifaces or run Responder with python3...\nTry "apt-get install python-netifaces" or "pip install netifaces"')
+	sys.exit('You need to install python3-netifaces or run Responder with python3...\nTry "apt-get install python3-netifaces" or "pip install netifaces"')
 
 try:
 	import aioquic
@@ -491,7 +491,6 @@ def banner():
 def StartupMessage():
 	enabled  = color('[ON]', 2, 1) 
 	disabled = color('[OFF]', 1, 1)
-	print(color("[*] ", 2, 1)+"Sponsor Responder: https://paypal.me/PythonResponder")
 	print('')
 	print(color("[+] ", 2, 1) + "Poisoners:")
 	print('    %-27s' % "LLMNR" + (enabled if (settings.Config.AnalyzeMode == False and settings.Config.LLMNR_On_Off) else disabled))
@@ -576,3 +575,4 @@ def StartupMessage():
 	print('')
 	print(color("[*] ", 2, 1)+"Version: "+settings.__version__)
 	print(color("[*] ", 2, 1)+"Author: Laurent Gaffie, <lgaffie@secorizon.com>")
+	print(color("[*] ", 2, 1)+"To sponsor Responder: https://paypal.me/PythonResponder")
