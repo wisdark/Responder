@@ -169,10 +169,10 @@ Options:
                         random TTL
     -N ANSWERNAME, --AnswerName=ANSWERNAME
                         Specifies the canonical name returned by the LLMNR
-                        poisoner in tits Answer section. By default, the
+                        poisoner in its Answer section. By default, the
                         answer's canonical name is the same as the query.
                         Changing this value is mainly useful when attempting
-                        to perform Kebreros relaying over HTTP.
+                        to perform Kerberos relaying over HTTP.
     -E, --ErrorCode     Changes the error code returned by the SMB server to
                         STATUS_LOGON_FAILURE. By default, the status is
                         STATUS_ACCESS_DENIED. Changing this value permits to
