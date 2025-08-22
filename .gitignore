@@ -1,5 +1,6 @@
 # Python artifacts
 *.pyc
+.venv/
 
 # Responder logs
 *.db
@@ -9,3 +10,6 @@
 # Generated certificates and keys
 certs/*.crt
 certs/*.key
+
+# IDE
+.idea/
