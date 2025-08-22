@@ -72,7 +72,7 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 				if settings.Config.AnalyzeMode:
 					LineHeader = "[Analyze mode: LLMNR]"
 					# Don't print if in Quiet Mode
-					if not settings.Config.Quite_Mode:
+					if not settings.Config.Quiet_Mode:
 						print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 

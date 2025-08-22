@@ -65,7 +65,7 @@ class MDNS(BaseRequestHandler):
 
 			if settings.Config.AnalyzeMode:  # Analyze Mode
 				# Don't print if in Quiet Mode
-				if not settings.Config.Quite_Mode:
+				if not settings.Config.Quiet_Mode:
 					print(text('[Analyze mode: MDNS] Request by %-15s for %s, ignoring' % (color(self.client_address[0].replace("::ffff:",""), 3), color(Request_Name, 3))))
 				SavePoisonersToDb({
 						'Poisoner': 'MDNS', 
