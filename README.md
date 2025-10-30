@@ -110,9 +110,16 @@ launchctl bootout system /System/Library/LaunchDaemons/com.apple.smbd.plist
 launchctl bootout system /System/Library/LaunchDaemons/com.apple.netbiosd.plist
 ```
 
-- Quickstart for macOS:
+## Install ##
 
+Using pipx
+
+```bash
+pipx install git+https://github.com/lgandx/Responder.git
 ```
+
+Manual:
+```bash
 git clone https://github.com/lgandx/Responder
 cd Responder/
 python3 -m venv .
