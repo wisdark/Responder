@@ -492,6 +492,7 @@ def StartupMessage():
 	enabled  = color('[ON]', 2, 1) 
 	disabled = color('[OFF]', 1, 1)
 	print('')
+	print(color("[*] ", 2, 1) + 'Sponsor this project: [USDT: TNS8ZhdkeiMCT6BpXnj4qPfWo3HpoACJwv] , [BTC: 15X984Qco6bUxaxiR8AmTnQQ5v1LJ2zpNo]\n')
 	print(color("[+] ", 2, 1) + "Poisoners:")
 	print('    %-27s' % "LLMNR" + (enabled if (settings.Config.AnalyzeMode == False and settings.Config.LLMNR_On_Off) else disabled))
 	print('    %-27s' % "NBT-NS" + (enabled if (settings.Config.AnalyzeMode == False and settings.Config.NBTNS_On_Off) else disabled))
@@ -575,4 +576,3 @@ def StartupMessage():
 	print('')
 	print(color("[*] ", 2, 1)+"Version: "+settings.__version__)
 	print(color("[*] ", 2, 1)+"Author: Laurent Gaffie, <lgaffie@secorizon.com>")
-	print(color("[*] ", 2, 1)+"To sponsor Responder: https://paypal.me/PythonResponder")

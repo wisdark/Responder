@@ -192,9 +192,11 @@ Options:
 
 ## Donation ##
 
-You can contribute to this project by donating to the following $XLM (Stellar Lumens) address:
+You can contribute to this project by donating to the following USDT or Bitcoin address:
 
-"GCGBMO772FRLU6V4NDUKIEXEFNVSP774H2TVYQ3WWHK4TEKYUUTLUKUH"
+USDT: TNS8ZhdkeiMCT6BpXnj4qPfWo3HpoACJwv
+
+BTC: 15X984Qco6bUxaxiR8AmTnQQ5v1LJ2zpNo
 
 Paypal:
 
