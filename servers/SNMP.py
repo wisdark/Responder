@@ -62,4 +62,4 @@ class SNMP(BaseRequestHandler):
                     }
                 )
         except:
-		    pass
+            pass
