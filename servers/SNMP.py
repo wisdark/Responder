@@ -25,38 +25,41 @@ else:
 
 class SNMP(BaseRequestHandler):
     def handle(self):
-        data = self.request[0]
-        received_record, rest_of_substrate = decode(data)
+        try:
+            data = self.request[0]
+            received_record, rest_of_substrate = decode(data)
 
-        snmp_version = int(received_record['field-0'])
+            snmp_version = int(received_record['field-0'])
 
-        if snmp_version == 3:
-            full_snmp_msg = hexlify(data).decode('utf-8')
-            received_record_inner, _ = decode(received_record['field-2'])
-            snmp_user = str(received_record_inner['field-3'])
-            engine_id = hexlify(received_record_inner['field-0']._value).decode('utf-8')
-            auth_params = hexlify(received_record_inner['field-4']._value).decode('utf-8')
+            if snmp_version == 3:
+                full_snmp_msg = hexlify(data).decode('utf-8')
+                received_record_inner, _ = decode(received_record['field-2'])
+                snmp_user = str(received_record_inner['field-3'])
+                engine_id = hexlify(received_record_inner['field-0']._value).decode('utf-8')
+                auth_params = hexlify(received_record_inner['field-4']._value).decode('utf-8')
 
 
-            SaveToDb({
-                "module": "SNMP",
-                "type": "SNMPv3",
-                "client" : self.client_address[0],
-                "user": snmp_user,
-                "hash": auth_params,
-                "fullhash": "{}:{}:{}:{}".format(snmp_user, full_snmp_msg, engine_id, auth_params)
-            })
-        else:
-            community_string = str(received_record['field-1'])
-            snmp_version = '1' if snmp_version == 0 else '2c'
-
-            SaveToDb(
-                {
+                SaveToDb({
                     "module": "SNMP",
-                    "type": "Cleartext SNMPv{}".format(snmp_version),
-                    "client": self.client_address[0],
-                    "user": community_string,
-                    "cleartext": community_string,
-                    "fullhash": community_string,
-                }
-            )
+                    "type": "SNMPv3",
+                    "client" : self.client_address[0],
+                    "user": snmp_user,
+                    "hash": auth_params,
+                    "fullhash": "{}:{}:{}:{}".format(snmp_user, full_snmp_msg, engine_id, auth_params)
+                })
+            else:
+                community_string = str(received_record['field-1'])
+                snmp_version = '1' if snmp_version == 0 else '2c'
+
+                SaveToDb(
+                    {
+                        "module": "SNMP",
+                        "type": "Cleartext SNMPv{}".format(snmp_version),
+                        "client": self.client_address[0],
+                        "user": community_string,
+                        "cleartext": community_string,
+                        "fullhash": community_string,
+                    }
+                )
+        except:
+		    pass
