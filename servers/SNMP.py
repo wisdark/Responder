@@ -40,9 +40,6 @@ class SNMP(BaseRequestHandler):
             data = self.request[0]
             socket = self.request[1]
             
-            if settings.Config.Verbose:
-                print(text('[SNMP] Received %d bytes from %s' % (len(data), self.client_address[0])))
-            
             # Decode the SNMP message
             try:
                 received_record, rest_of_substrate = decode(data)
@@ -59,9 +56,6 @@ class SNMP(BaseRequestHandler):
                     print(text('[SNMP] Could not determine SNMP version'))
                 return
             
-            if settings.Config.Verbose:
-                print(text('[SNMP] SNMP version: %s' % ('v3' if snmp_version == 3 else 'v2c' if snmp_version == 1 else 'v1')))
-            
             # Handle SNMPv3
             if snmp_version == 3:
                 self.handle_snmpv3(data, received_record, socket)
@@ -77,9 +71,6 @@ class SNMP(BaseRequestHandler):
     def handle_snmpv3(self, data, received_record, socket):
         """Handle SNMPv3 messages and extract authentication parameters"""
         try:
-            # Get the full message in hex for hashcat
-            full_snmp_msg = hexlify(data).decode('utf-8')
-            
             # Decode the inner security parameters
             received_record_inner, _ = decode(received_record['field-2'])
             
@@ -91,37 +82,47 @@ class SNMP(BaseRequestHandler):
             auth_params = hexlify(received_record_inner['field-4']._value).decode('utf-8')
             priv_params = hexlify(received_record_inner['field-5']._value).decode('utf-8')
             
-            if settings.Config.Verbose:
-                print(text('[SNMP] SNMPv3 User: %s' % snmp_user))
-                print(text('[SNMP] Engine ID: %s' % engine_id))
-                print(text('[SNMP] Engine Boots: %d' % engine_boots))
-                print(text('[SNMP] Engine Time: %d' % engine_time))
-                print(text('[SNMP] Auth Params: %s' % auth_params))
-                print(text('[SNMP] Priv Params: %s' % priv_params))
+            # Zero out authentication parameters in packet for hashcat
+            # Hashcat recalculates HMAC over packet with auth params = zeros
+            data_hex = hexlify(data).decode('utf-8')
+            if auth_params and auth_params != '00' * 12:
+                # Replace auth params with zeros in the packet
+                zeroed_auth = '00' * (len(auth_params) // 2)
+                full_snmp_msg = data_hex.replace(auth_params, zeroed_auth)
+            else:
+                full_snmp_msg = data_hex
             
             # Determine authentication algorithm
             auth_algo_name, hashcat_mode = self.identify_auth_algorithm(data)
             
-            if settings.Config.Verbose:
-                if auth_algo_name:
-                    print(text('[SNMP] Auth Algorithm: %s (hashcat mode %s)' % (auth_algo_name, hashcat_mode)))
-                else:
-                    print(text('[SNMP] Auth Algorithm: Unknown'))
+            # If not detected by OID, infer from auth params length
+            if not hashcat_mode and auth_params and auth_params != '00' * 12:
+                auth_len = len(auth_params) // 2  # Convert hex to bytes
+                if auth_len == 12:
+                    # Could be MD5 or SHA1 - use combined mode
+                    auth_algo_name = 'HMAC-MD5-96/HMAC-SHA1-96'
+                    hashcat_mode = 25000
+                elif auth_len == 16:
+                    auth_algo_name = 'HMAC-SHA224'
+                    hashcat_mode = 25300
+                elif auth_len == 24:
+                    auth_algo_name = 'HMAC-SHA256'
+                    hashcat_mode = 25400
+                elif auth_len == 32:
+                    auth_algo_name = 'HMAC-SHA384'
+                    hashcat_mode = 25500
+                elif auth_len == 48:
+                    auth_algo_name = 'HMAC-SHA512'
+                    hashcat_mode = 25600
             
             # Check if this is a discovery request (no auth params and empty username)
             if (not auth_params or auth_params == '00' * 12) and (not snmp_user or snmp_user == ''):
-                if settings.Config.Verbose:
-                    print(text('[SNMP] Discovery request - sending engine ID'))
-                
                 # Send discovery response with our engine ID
                 self.send_discovery_response(socket, received_record)
                 return
             
             # Check if authentication is actually being used
             if not auth_params or auth_params == '00' * 12:
-                if settings.Config.Verbose:
-                    print(text('[SNMP] No authentication parameters (noAuth)'))
-                
                 # Still save the username with noAuth indicator
                 SaveToDb({
                     "module": "SNMP",
@@ -135,11 +136,15 @@ class SNMP(BaseRequestHandler):
             
             # Build hashcat-compatible hash
             if hashcat_mode:
-                # Hashcat format for SNMPv3:
-                # $SNMPv3$<auth_type>$<engine_id>$<engine_boots>$<engine_time>$<username>$<auth_params>$<packet>
+                # Format for mode 25000: $SNMPv3$<type>$<boots>$<packet>$<engine_id>$<auth_params>
+                # type: 0=MD5/SHA1, 1=SHA1, 2=SHA224, etc.
+                # boots: engine boots in decimal
+                # packet: full SNMP packet in hex
+                # engine_id: engine ID in hex
+                # auth_params: authentication parameters in hex
                 
-                # Auth type for hashcat (0=MD5, 1=SHA1, 2=SHA224, 3=SHA256, 4=SHA384, 5=SHA512)
                 auth_type_map = {
+                    25000: 0,  # MD5/SHA1 combined
                     25100: 0,  # MD5
                     25200: 1,  # SHA1
                     25300: 2,  # SHA224
@@ -149,23 +154,28 @@ class SNMP(BaseRequestHandler):
                 }
                 auth_type = auth_type_map.get(hashcat_mode, 0)
                 
-                # Build the hash
-                hashcat_hash = "$SNMPv3$%d$%s$%d$%d$%s$%s$%s" % (
+                # Build the hash in correct format
+                hashcat_hash = "$SNMPv3$%d$%d$%s$%s$%s" % (
                     auth_type,
-                    engine_id,
                     engine_boots,
-                    engine_time,
-                    snmp_user,
-                    auth_params,
-                    full_snmp_msg
+                    full_snmp_msg,
+                    engine_id,
+                    auth_params
                 )
                 
                 if settings.Config.Verbose:
-                    print(text('[SNMP] Built hashcat hash (mode %d)' % hashcat_mode))
+                    print(text('[SNMP] SNMPv3 hash captured!'))
+                    print(text('[SNMP] Crack with: hashcat -m %d hash.txt wordlist.txt' % hashcat_mode))
+                    if hashcat_mode == 25000:
+                        print(text('[SNMP] Note: Mode 25000 tries both MD5 and SHA1'))
+                        print(text('[SNMP] Or use -m 25100 (MD5 only) or -m 25200 (SHA1 only)'))
+                
+                # Sanitize type name for filesystem (remove slashes)
+                safe_type = auth_algo_name.replace('/', '-')
                 
                 SaveToDb({
                     "module": "SNMP",
-                    "type": "SNMPv3-%s" % auth_algo_name,
+                    "type": "SNMPv3-%s" % safe_type,
                     "client": self.client_address[0],
                     "user": snmp_user,
                     "hash": hashcat_hash,
@@ -202,8 +212,6 @@ class SNMP(BaseRequestHandler):
             
             # Validate community string (should be printable)
             if not community_string or not self.is_printable(community_string):
-                if settings.Config.Verbose:
-                    print(text('[SNMP] Invalid community string (non-printable or empty)'))
                 return
             
             SaveToDb({
@@ -276,8 +284,8 @@ class SNMP(BaseRequestHandler):
             # Format: 0x80 + enterprise ID (4 bytes) + format + data
             # Enterprise ID: 0x00000000 (reserved)
             # Format: 0x05 (octets - allows arbitrary data)
-            # Data: 4 random bytes
-            engine_id = b'\x80\x00\x00\x00\x05' + os.urandom(4)
+            # Data: 12 random bytes (17 bytes total to match hashcat requirements)
+            engine_id = b'\x80\x00\x00\x00\x05' + os.urandom(12)
             
             # Engine boots and time
             engine_boots = 1
