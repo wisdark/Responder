@@ -861,7 +861,7 @@ class IMAPGreeting(Packet):
 
 class IMAPCapability(Packet):
 	fields = OrderedDict([
-		("Code",     "* CAPABILITY IMAP4 IMAP4rev1 AUTH=PLAIN"),
+		("Code",     "* CAPABILITY IMAP4 IMAP4rev1 AUTH=PLAIN AUTH=LOGIN AUTH=NTLM"),
 		("CRLF",     "\r\n"),
 	])
 

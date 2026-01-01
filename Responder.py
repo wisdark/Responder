@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import asyncio
 import optparse
 import ssl
 try:
@@ -46,6 +47,8 @@ parser.add_option('--lm',                  action="store_true", help="Force LM h
 parser.add_option('--disable-ess',         action="store_true", help="Force ESS downgrade. Default: False", dest="NOESS_On_Off", default=False)
 parser.add_option('-v','--verbose',        action="store_true", help="Increase verbosity.", dest="Verbose")
 parser.add_option('-t','--ttl',            action="store",      help="Change the default Windows TTL for poisoned answers. Value in hex (30 seconds = 1e). use '-t random' for random TTL", dest="TTL", metavar="1e", default=None)
+parser.add_option('-N', '--AnswerName',	   action="store",      help="Specifies the canonical name returned by the LLMNR poisoner in its Answer section. By default, the answer's canonical name is the same as the query. Changing this value is mainly useful when attempting to perform Kerberos relaying over HTTP.", dest="AnswerName", default=None)
+parser.add_option('-E', '--ErrorCode',     action="store_true",      help="Changes the error code returned by the SMB server to STATUS_LOGON_FAILURE. By default, the status is STATUS_ACCESS_DENIED. Changing this value permits to obtain WebDAV authentications from the poisoned machines where the WebClient service is running.", dest="ErrorCode", default=False)
 options, args = parser.parse_args()
 
 if not os.geteuid() == 0:
@@ -359,6 +362,12 @@ def main():
 				from servers.SMB import SMB1
 				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 445, SMB1,)))
 				threads.append(Thread(target=serve_thread_tcp, args=(settings.Config.Bind_To, 139, SMB1,)))
+
+		if settings.Config.QUIC_On_Off:
+			from servers.QUIC import start_quic_server
+			cert = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLCert)
+			key = os.path.join(settings.Config.ResponderPATH, settings.Config.SSLKey)
+			threads.append(Thread(target=lambda: asyncio.run(start_quic_server(settings.Config.Bind_To, cert, key))))
 
 		if settings.Config.Krb_On_Off:
 			from servers.Kerberos import KerbTCP, KerbUDP

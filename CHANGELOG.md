@@ -1,3 +1,35 @@
+
+n.n.n / 2025-05-22
+==================
+
+  * added check for aioquic & updated version to reflect recent changes
+  * Merge pull request #310 from ctjf/master
+  * Merge pull request #308 from BlWasp/error_code_returned
+  * Merge pull request #311 from stfnw/master
+  * DHCP poisoner: refactor FindIP
+  * added quic support based on xpn's work
+  * Indentation typos
+  * Add status code control
+  * Merge pull request #305 from L1-0/patch-1
+  * Update RPC.py
+  * Merge pull request #301 from q-roland/kerberos_relaying_llmnr
+  * Adding answer name spoofing capabilities when poisoning LLMNR for Kerberos relaying purpose
+
+n.n.n / 2025-05-22
+==================
+
+  * added check for aioquic & updated version to reflect recent changes
+  * Merge pull request #310 from ctjf/master
+  * Merge pull request #308 from BlWasp/error_code_returned
+  * Merge pull request #311 from stfnw/master
+  * DHCP poisoner: refactor FindIP
+  * added quic support based on xpn's work
+  * Indentation typos
+  * Add status code control
+  * Merge pull request #305 from L1-0/patch-1
+  * Update RPC.py
+  * Merge pull request #301 from q-roland/kerberos_relaying_llmnr
+  * Adding answer name spoofing capabilities when poisoning LLMNR for Kerberos relaying purpose
 # Changelog
 
 All notable changes to this project will be documented in this file.

@@ -23,7 +23,7 @@ import subprocess
 
 from utils import *
 
-__version__ = 'Responder 3.1.5.0'
+__version__ = 'Responder 3.1.7.0'
 
 class Settings:
 	
@@ -124,6 +124,7 @@ class Settings:
 		self.HTTP_On_Off     = self.toBool(config.get('Responder Core', 'HTTP'))
 		self.SSL_On_Off      = self.toBool(config.get('Responder Core', 'HTTPS'))
 		self.SMB_On_Off      = self.toBool(config.get('Responder Core', 'SMB'))
+		self.QUIC_On_Off     = self.toBool(config.get('Responder Core', 'QUIC'))
 		self.SQL_On_Off      = self.toBool(config.get('Responder Core', 'SQL'))
 		self.FTP_On_Off      = self.toBool(config.get('Responder Core', 'FTP'))
 		self.POP_On_Off      = self.toBool(config.get('Responder Core', 'POP'))
@@ -172,6 +173,8 @@ class Settings:
 		self.DHCP_DNS           = options.DHCP_DNS
 		self.ExternalIP6        = options.ExternalIP6
 		self.Quiet_Mode			= options.Quiet
+		self.AnswerName			= options.AnswerName
+		self.ErrorCode          = options.ErrorCode
 
 		# TTL blacklist. Known to be detected by SOC / XDR
 		TTL_blacklist = [b"\x00\x00\x00\x1e", b"\x00\x00\x00\x78", b"\x00\x00\x00\xa5"]

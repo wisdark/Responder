@@ -105,15 +105,32 @@ Edit this file /etc/NetworkManager/NetworkManager.conf and comment the line: `dn
 
 - This tool is not meant to work on Windows.
 
-- For OSX, please note: Responder must be launched with an IP address for the -i flag (e.g. -i YOUR_IP_ADDR). There is no native support in OSX for custom interface binding. Using -i en1 will not work. Also to run Responder with the best experience, run the following as root:
+- For macOS, please note: Responder must be launched with an IP address for the -i flag (e.g. -i YOUR_IP_ADDR). There is no native support in OSX for custom interface binding. Using -i en1 will not work. Also to run Responder with the best experience, run the following as root:
 
-    launchctl unload /System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist
+```
+launchctl bootout system /System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist
+launchctl bootout system /System/Library/LaunchDaemons/com.apple.mDNSResponder.plist
+launchctl bootout system /System/Library/LaunchDaemons/com.apple.smbd.plist
+launchctl bootout system /System/Library/LaunchDaemons/com.apple.netbiosd.plist
+```
 
-    launchctl unload /System/Library/LaunchDaemons/com.apple.mDNSResponder.plist
+## Install ##
 
-    launchctl unload /System/Library/LaunchDaemons/com.apple.smbd.plist
+Using pipx
 
-    launchctl unload /System/Library/LaunchDaemons/com.apple.netbiosd.plist
+```bash
+pipx install git+https://github.com/lgandx/Responder.git
+```
+
+Manual:
+```bash
+git clone https://github.com/lgandx/Responder
+cd Responder/
+python3 -m venv .
+source bin/activate
+python3 -m pip install netifaces
+sudo python3 Responder.py
+```
 
 ## Usage ##
 
@@ -161,20 +178,36 @@ Options:
                         False
     -P, --ProxyAuth       Force NTLM (transparently)/Basic (prompt)
                         authentication for the proxy. WPAD doesn't need to be
-                        ON. Default: False
+                        ON. This option is highly effective. Default: False
+    -Q, --quiet           Tell Responder to be quiet, disables a bunch of
+                        printing from the poisoners. Default: False
     --lm                  Force LM hashing downgrade for Windows XP/2003 and
                         earlier. Default: False
     --disable-ess         Force ESS downgrade. Default: False
     -v, --verbose         Increase verbosity.
+    -t 1e, --ttl=1e       Change the default Windows TTL for poisoned answers.
+                        Value in hex (30 seconds = 1e). use '-t random' for
+                        random TTL
+    -N ANSWERNAME, --AnswerName=ANSWERNAME
+                        Specifies the canonical name returned by the LLMNR
+                        poisoner in its Answer section. By default, the
+                        answer's canonical name is the same as the query.
+                        Changing this value is mainly useful when attempting
+                        to perform Kerberos relaying over HTTP.
+    -E, --ErrorCode     Changes the error code returned by the SMB server to
+                        STATUS_LOGON_FAILURE. By default, the status is
+                        STATUS_ACCESS_DENIED. Changing this value permits to
+                        obtain WebDAV authentications from the poisoned
+                        machines where the WebClient service is running.
 
-
-	
 
 ## Donation ##
 
-You can contribute to this project by donating to the following $XLM (Stellar Lumens) address:
+You can contribute to this project by donating to the following USDT or Bitcoin address:
 
-"GCGBMO772FRLU6V4NDUKIEXEFNVSP774H2TVYQ3WWHK4TEKYUUTLUKUH"
+USDT: TNS8ZhdkeiMCT6BpXnj4qPfWo3HpoACJwv
+
+BTC: 15X984Qco6bUxaxiR8AmTnQQ5v1LJ2zpNo
 
 Paypal:
 
